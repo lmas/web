@@ -57,7 +57,7 @@ func (h *Handler) Register(method, path string, handler HandlerFunc) {
 	h.mux.Handle(method, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		err := handler(Context{w, r, p})
 		if err != nil {
-			h.log("Error: %+v\n", err)
+			h.log("Error: %+v", err)
 			switch err := errors.Cause(err).(type) {
 			case *httpError:
 				http.Error(w, err.String(), err.Status())
