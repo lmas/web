@@ -46,8 +46,8 @@ func (c Context) Error(status int, msg string) error {
 
 func (c Context) Json(status int, data interface{}) error {
 	// Basicly copied from http.Error()
-	c.W.Header().Set("Content-Type", "application/json; charset=utf-8")
-	c.W.Header().Set("X-Content-Type-Options", "nosniff")
+	c.SetHeader("Content-Type", "application/json; charset=utf-8")
+	c.SetHeader("X-Content-Type-Options", "nosniff")
 	c.W.WriteHeader(status)
 	return json.NewEncoder(c.W).Encode(data)
 }
@@ -55,4 +55,14 @@ func (c Context) Json(status int, data interface{}) error {
 func (c Context) DecodeJson(data interface{}) error {
 	defer c.R.Body.Close()
 	return json.NewDecoder(c.R.Body).Decode(data)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+func (c Context) SetHeader(key, value string) {
+	c.W.Header().Set(key, value)
+}
+
+func (c Context) GetHeader(key string) string {
+	return c.R.Header.Get(key)
 }
