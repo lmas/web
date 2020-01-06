@@ -1,6 +1,7 @@
 package web
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"path"
@@ -30,7 +31,7 @@ func New(l *log.Logger) *Handler {
 		HandleMethodNotAllowed: true,
 		HandleOPTIONS:          true,
 		PanicHandler: func(w http.ResponseWriter, r *http.Request, ret interface{}) {
-			h.log("%s\t %s\t %s\t panic: %s", r.RemoteAddr, r.Method, r.URL.Path, ret)
+			h.logRequest(r, fmt.Sprintf("%+v", ret))
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		},
 	}
@@ -46,18 +47,22 @@ func (h *Handler) log(msg string, args ...interface{}) {
 	}
 }
 
+func (h *Handler) logRequest(r *http.Request, msg string) {
+	h.log("%s\t %s\t %s\t %s", r.RemoteAddr, r.Method, r.URL.Path, msg)
+}
+
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	h.mux.ServeHTTP(w, r)
 	dur := time.Since(start)
-	h.log("%s\t %s\t %s\t %s", r.RemoteAddr, r.Method, r.URL.Path, dur)
+	h.logRequest(r, dur.String())
 }
 
 func (h *Handler) Register(method, path string, handler HandlerFunc) {
 	h.mux.Handle(method, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		err := handler(Context{w, r, p})
 		if err != nil {
-			h.log("Error: %+v", err)
+			h.logRequest(r, fmt.Sprintf("%+v", err))
 			switch err := errors.Cause(err).(type) {
 			case *httpError:
 				http.Error(w, err.String(), err.Status())
