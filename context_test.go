@@ -9,11 +9,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-func TestJson(t *testing.T) {
+func TestJSON(t *testing.T) {
 	msg := "hello world"
 	t.Run("get json", func(t *testing.T) {
 		h := testHandler(t, "GET", "/json", func(ctx Context) error {
-			return ctx.Json(http.StatusOK, msg)
+			return ctx.JSON(http.StatusOK, msg)
 		})
 		resp := doRequest(t, h, "GET", "/json", nil, nil)
 		assertStatusCode(t, resp, http.StatusOK)
@@ -22,7 +22,7 @@ func TestJson(t *testing.T) {
 	t.Run("post json", func(t *testing.T) {
 		h := testHandler(t, "POST", "/json", func(ctx Context) error {
 			var ret string
-			err := ctx.DecodeJson(&ret)
+			err := ctx.DecodeJSON(&ret)
 			if err != nil {
 				return ctx.Error(http.StatusInternalServerError, errors.Wrap(err, "decoding body").Error())
 			}
