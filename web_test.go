@@ -125,21 +125,21 @@ func TestSimple(t *testing.T) {
 }
 
 func TestRegisterPrefix(t *testing.T) {
-	t.Run("register prefix path", func(t *testing.T) {
+	t.Run("register simple prefix", func(t *testing.T) {
 		h := testHandler(t, "", "", nil)
-		h.RegisterPrefix("/api", func(f RegisterFunc) {
-			hello := func(msg string) func(Context) error {
-				return func(ctx Context) error {
-					fmt.Fprintf(ctx.W, msg)
-					return nil
-				}
+		f := h.RegisterPrefix("/api")
+		hello := func(msg string) func(Context) error {
+			return func(ctx Context) error {
+				fmt.Fprintf(ctx.W, msg)
+				return nil
 			}
-			f("GET", "/hello", hello("hello world"))
-			f("GET", "/hello2", hello("hello world2"))
-			f("GET", "/error", func(ctx Context) error {
-				return errors.New("test")
-			})
+		}
+		f("GET", "/hello", hello("hello world"))
+		f("GET", "/hello2", hello("hello world2"))
+		f("GET", "/error", func(ctx Context) error {
+			return errors.New("test")
 		})
+
 		resp := doRequest(t, h, "GET", "/api/hello", nil, nil)
 		assertStatusCode(t, resp, http.StatusOK)
 		assertBody(t, resp, "hello world")
@@ -149,6 +149,84 @@ func TestRegisterPrefix(t *testing.T) {
 		assertBody(t, resp, "hello world2")
 
 		resp = doRequest(t, h, "GET", "/api/error", nil, nil)
+		assertStatusCode(t, resp, http.StatusInternalServerError)
+		assertBody(t, resp, "Internal Server Error\n")
+	})
+	t.Run("register prefix with middleware", func(t *testing.T) {
+		h := testHandler(t, "", "", nil)
+		mw := func(h http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				r.Header.Set("X-MSG", "hello")
+				h.ServeHTTP(w, r)
+			})
+		}
+		f := h.RegisterPrefix("/api", mw)
+		hello := func(user string) func(Context) error {
+			return func(ctx Context) error {
+				msg := ctx.R.Header.Get("X-MSG")
+				fmt.Fprintf(ctx.W, "%s %s", msg, user)
+				return nil
+			}
+		}
+		f("GET", "/hello", hello("world"))
+		f("GET", "/hello2", hello("world2"))
+
+		resp := doRequest(t, h, "GET", "/api/hello", nil, nil)
+		assertStatusCode(t, resp, http.StatusOK)
+		assertBody(t, resp, "hello world")
+
+		resp = doRequest(t, h, "GET", "/api/hello2", nil, nil)
+		assertStatusCode(t, resp, http.StatusOK)
+		assertBody(t, resp, "hello world2")
+	})
+}
+
+func TestMiddleware(t *testing.T) {
+	msg, sender := "hello", "world"
+	mw1 := func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.Header.Set("X-MSG", msg)
+			h.ServeHTTP(w, r)
+		})
+	}
+	mw2 := func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get("X-MSG") != msg {
+				panic("didn't find header")
+			}
+			h.ServeHTTP(w, r)
+		})
+	}
+
+	t.Run("register single middleware", func(t *testing.T) {
+		f := func(ctx Context) error {
+			fmt.Fprintf(ctx.W, ctx.R.Header.Get("X-MSG"))
+			return nil
+		}
+		h := testHandler(t, "", "", nil)
+		h.Register("GET", "/hello", f, mw1)
+		resp := doRequest(t, h, "GET", "/hello", nil, nil)
+		assertStatusCode(t, resp, http.StatusOK)
+		assertBody(t, resp, msg)
+	})
+	t.Run("register many middleware", func(t *testing.T) {
+		f := func(ctx Context) error {
+			fmt.Fprintf(ctx.W, "%s from %s", ctx.R.Header.Get("X-MSG"), ctx.P.ByName("sender"))
+			return nil
+		}
+		h := testHandler(t, "", "", nil)
+		h.Register("GET", "/hello/:sender", f, mw1, mw2)
+		resp := doRequest(t, h, "GET", "/hello/"+sender, nil, nil)
+		assertStatusCode(t, resp, http.StatusOK)
+		assertBody(t, resp, msg+" from "+sender)
+	})
+	t.Run("error in handler", func(t *testing.T) {
+		f := func(ctx Context) error {
+			return errors.New("test")
+		}
+		h := testHandler(t, "", "", nil)
+		h.Register("GET", "/hello/:sender", f, mw1, mw2)
+		resp := doRequest(t, h, "GET", "/hello/"+sender, nil, nil)
 		assertStatusCode(t, resp, http.StatusInternalServerError)
 		assertBody(t, resp, "Internal Server Error\n")
 	})

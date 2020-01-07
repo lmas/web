@@ -21,6 +21,38 @@ type HandlerFunc func(Context) error
 // the URL and last field is the HandlerFunc you want to register.
 type RegisterFunc func(string, string, HandlerFunc)
 
+// MiddlewareFunc is a function signature used when wrapping a HandlerFunc in
+// one or many http.Handler middlewares that's pretty common in the go community.
+type MiddlewareFunc func(http.Handler) http.Handler
+
+// wrap wraps a HandlerFunc in one or more http.Handler middlewares.
+func wrap(handler HandlerFunc, mw ...MiddlewareFunc) HandlerFunc {
+	if len(mw) < 1 {
+		return handler
+	}
+
+	var err error
+	var params httprouter.Params
+	var wrapped http.Handler
+	wrapped = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		err = handler(Context{w, r, params})
+	})
+	for i := len(mw) - 1; i >= 0; i-- {
+		if mw[i] == nil {
+			panic("Trying to use a nil pointer as middleware")
+		}
+		wrapped = mw[i](wrapped)
+	}
+
+	return HandlerFunc(func(ctx Context) error {
+		params = ctx.P
+		wrapped.ServeHTTP(ctx.W, ctx.R)
+		return err
+	})
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 // Handler implements the http.Handler interface and allows you to easily
 // register handlers and middleware with sane defaults.
 // It uses github.com/julienschmidt/httprouter, for quick and easy routing.
@@ -76,9 +108,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Register registers a new handler for a certain http method and URL.
 // It will also handle any errors returned from the handler, by responsing to
 // the erroring request with http.Error().
-func (h *Handler) Register(method, path string, handler HandlerFunc) {
+// You can optionally use one or more http.Handler middleware. First middleware
+// in the list will be executed first, and then it loops forward through all
+// middlewares and lasty executes the request handler last.
+func (h *Handler) Register(method, path string, handler HandlerFunc, mw ...MiddlewareFunc) {
+	wrapped := wrap(handler, mw...)
 	h.mux.Handle(method, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		err := handler(Context{w, r, p})
+		err := wrapped(Context{w, r, p})
 		if err != nil {
 			h.logRequest(r, fmt.Sprintf("%+v", err))
 			switch err := errors.Cause(err).(type) {
@@ -91,11 +127,11 @@ func (h *Handler) Register(method, path string, handler HandlerFunc) {
 	})
 }
 
-// RegisterPrefix allows you to register multiple handlers under a common URL
-// prefix. f is a function callback that gives you a RegisterFunc that you can
-// use to register multiple handlers under the same prefix.
-func (h *Handler) RegisterPrefix(prefix string, f func(RegisterFunc)) {
-	f(func(m, p string, handler HandlerFunc) {
-		h.Register(m, path.Join(prefix, p), handler)
-	})
+// RegisterPrefix returns a RegisterFunc function that you can call multiple
+// times to register multiple handlers under a common URL prefix.
+// You can optionally use middlewares too, the same way as in Register().
+func (h *Handler) RegisterPrefix(prefix string, mw ...MiddlewareFunc) RegisterFunc {
+	return func(m, p string, handler HandlerFunc) {
+		h.Register(m, path.Join(prefix, p), handler, mw...)
+	}
 }
