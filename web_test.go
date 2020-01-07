@@ -107,12 +107,20 @@ func TestSimple(t *testing.T) {
 		assertBody(t, resp, "Internal Server Error\n")
 	})
 	t.Run("panic in a handler", func(t *testing.T) {
+		msg := "test"
 		h := testHandler(t, "GET", "/hello", func(ctx Context) error {
-			panic("test")
+			panic(msg)
 		})
+		h.mux.PanicHandler = func(w http.ResponseWriter, r *http.Request, ret interface{}) {
+			s, ok := ret.(string)
+			if !ok {
+				t.Errorf("got panic value %q, expected %q", ret, msg)
+			}
+			http.Error(w, s, http.StatusInternalServerError)
+		}
 		resp := doRequest(t, h, "GET", "/hello", nil, nil)
 		assertStatusCode(t, resp, http.StatusInternalServerError)
-		assertBody(t, resp, "Internal Server Error\n")
+		assertBody(t, resp, msg+"\n")
 	})
 }
 
