@@ -38,7 +38,9 @@ func doRequest(t *testing.T, handler http.Handler, method, path string, headers 
 	t.Helper()
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(method, path, body)
-	req.Header = headers
+	if headers != nil {
+		req.Header = headers
+	}
 	handler.ServeHTTP(rec, req)
 	return rec.Result()
 }
