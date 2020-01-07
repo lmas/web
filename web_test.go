@@ -28,6 +28,9 @@ func testHandler(t *testing.T, method, path string, f func(Context) error) *Hand
 	if f != nil {
 		h.Register(method, path, f)
 	}
+	h.mux.PanicHandler = func(w http.ResponseWriter, r *http.Request, ret interface{}) {
+		t.Fatalf("Panic: %+v", ret)
+	}
 	return h
 }
 
