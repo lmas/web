@@ -1,5 +1,5 @@
 
-name: Test and Lint
+name: Tests
 on: [push, pull_request]
 jobs:
 
