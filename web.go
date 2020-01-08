@@ -21,6 +21,7 @@ type HandlerFunc func(Context) error
 // the URL and last field is the HandlerFunc you want to register.
 type RegisterFunc func(string, string, HandlerFunc)
 
+// Options contains all the optional settings for a Handler.
 type Options struct {
 	// Optional Simple logger
 	Log *log.Logger
@@ -43,11 +44,10 @@ type Handler struct {
 	opt *Options
 }
 
-// New returns a new Handler ready to be used. You can provide an optional
-// log.Logger to enable logging.
-// Start serve requests by running it with a http.ListenAndServe(":8000", *Handler)
-// call.
-// Any panics caused by a registered handler will be caught and logged.
+// New returns a new Handler that implements the http.Handler interface and can
+// be run with http.ListenAndServe(":8000", handler).
+// You can optionally proved an Options struct with custom settings.
+// Any panics caused by a registered handler will be caught and optionaly logged.
 func New(opt *Options) *Handler {
 	if opt == nil {
 		opt = &Options{}
