@@ -53,12 +53,16 @@ func wrap(handler HandlerFunc, mw ...MiddlewareFunc) HandlerFunc {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+type Options struct {
+	Log *log.Logger
+}
+
 // Handler implements the http.Handler interface and allows you to easily
 // register handlers and middleware with sane defaults.
 // It uses github.com/julienschmidt/httprouter, for quick and easy routing.
 type Handler struct {
-	logger *log.Logger
-	mux    *httprouter.Router
+	mux *httprouter.Router
+	opt *Options
 }
 
 // New returns a new Handler ready to be used. You can provide an optional
@@ -66,9 +70,12 @@ type Handler struct {
 // Start serve requests by running it with a http.ListenAndServe(":8000", *Handler)
 // call.
 // Any panics caused by a registered handler will be caught and logged.
-func New(l *log.Logger) *Handler {
+func New(opt *Options) *Handler {
+	if opt == nil {
+		opt = &Options{}
+	}
 	h := &Handler{
-		logger: l,
+		opt: opt,
 	}
 
 	h.mux = &httprouter.Router{
@@ -85,11 +92,11 @@ func New(l *log.Logger) *Handler {
 }
 
 func (h *Handler) log(msg string, args ...interface{}) {
-	if h.logger == nil {
+	if h.opt.Log == nil {
 		return
 	}
 	if msg != "" {
-		h.logger.Printf(msg+"\n", args...)
+		h.opt.Log.Printf(msg+"\n", args...)
 	}
 }
 
