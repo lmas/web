@@ -21,36 +21,6 @@ type HandlerFunc func(Context) error
 // the URL and last field is the HandlerFunc you want to register.
 type RegisterFunc func(string, string, HandlerFunc)
 
-// MiddlewareFunc is a function signature used when wrapping a HandlerFunc in
-// one or many http.Handler middlewares that's pretty common in the go community.
-type MiddlewareFunc func(http.Handler) http.Handler
-
-// wrap wraps a HandlerFunc in one or more http.Handler middlewares.
-func wrap(handler HandlerFunc, mw ...MiddlewareFunc) HandlerFunc {
-	if len(mw) < 1 {
-		return handler
-	}
-
-	var err error
-	var params httprouter.Params
-	var wrapped http.Handler
-	wrapped = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		err = handler(Context{w, r, params})
-	})
-	for i := len(mw) - 1; i >= 0; i-- {
-		if mw[i] == nil {
-			panic("Trying to use a nil pointer as middleware")
-		}
-		wrapped = mw[i](wrapped)
-	}
-
-	return HandlerFunc(func(ctx Context) error {
-		params = ctx.P
-		wrapped.ServeHTTP(ctx.W, ctx.R)
-		return err
-	})
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 type Options struct {
@@ -119,7 +89,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // in the list will be executed first, and then it loops forward through all
 // middlewares and lasty executes the request handler last.
 func (h *Handler) Register(method, path string, handler HandlerFunc, mw ...MiddlewareFunc) {
-	wrapped := wrap(handler, mw...)
+	wrapped := wrapMiddleware(handler, mw...)
 	h.mux.Handle(method, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		err := wrapped(Context{w, r, p})
 		if err != nil {
