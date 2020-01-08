@@ -1,6 +1,7 @@
 package web
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"path"
@@ -10,18 +11,49 @@ import (
 	"github.com/pkg/errors"
 )
 
+// HandlerFunc is a shorter convenience function signature for http handlers,
+// instead of func(http.ResponseWriter, *http.Request). It also allows for
+// easier error handling.
 type HandlerFunc func(Context) error
 
+// RegisterFunc is a function signature used when you want to register multiple
+// handlers under a common URL path. First string is method, second string is
+// the URL and last field is the HandlerFunc you want to register.
 type RegisterFunc func(string, string, HandlerFunc)
 
-type Handler struct {
-	logger *log.Logger
-	mux    *httprouter.Router
+// Options contains all the optional settings for a Handler.
+type Options struct {
+	// Optional Simple logger
+	Log *log.Logger
+
+	// Optional func to check if http basic auth user/pass is valid on
+	// every request comming in.
+	// A CheckBasicAuth middleware will be automatically attached to any
+	// registered handlers when this option is set. It will be run after
+	// all other middlewares have been executed successfully.
+	BasicAuth BasicAuthFunc
 }
 
-func New(l *log.Logger) *Handler {
+////////////////////////////////////////////////////////////////////////////////
+
+// Handler implements the http.Handler interface and allows you to easily
+// register handlers and middleware with sane defaults.
+// It uses github.com/julienschmidt/httprouter, for quick and easy routing.
+type Handler struct {
+	mux *httprouter.Router
+	opt *Options
+}
+
+// New returns a new Handler that implements the http.Handler interface and can
+// be run with http.ListenAndServe(":8000", handler).
+// You can optionally proved an Options struct with custom settings.
+// Any panics caused by a registered handler will be caught and optionaly logged.
+func New(opt *Options) *Handler {
+	if opt == nil {
+		opt = &Options{}
+	}
 	h := &Handler{
-		logger: l,
+		opt: opt,
 	}
 
 	h.mux = &httprouter.Router{
@@ -30,7 +62,7 @@ func New(l *log.Logger) *Handler {
 		HandleMethodNotAllowed: true,
 		HandleOPTIONS:          true,
 		PanicHandler: func(w http.ResponseWriter, r *http.Request, ret interface{}) {
-			h.log("%s\t %s\t %s\t panic: %s", r.RemoteAddr, r.Method, r.URL.Path, ret)
+			h.logRequest(r, fmt.Sprintf("%+v", ret))
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		},
 	}
@@ -38,26 +70,43 @@ func New(l *log.Logger) *Handler {
 }
 
 func (h *Handler) log(msg string, args ...interface{}) {
-	if h.logger == nil {
+	if h.opt.Log == nil {
 		return
 	}
 	if msg != "" {
-		h.logger.Printf(msg+"\n", args...)
+		h.opt.Log.Printf(msg+"\n", args...)
 	}
 }
 
+func (h *Handler) logRequest(r *http.Request, msg string) {
+	h.log("%s\t %s\t %s\t %s", r.RemoteAddr, r.Method, r.URL.Path, msg)
+}
+
+// ServeHTTP implements the http.Handler interface.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	h.mux.ServeHTTP(w, r)
 	dur := time.Since(start)
-	h.log("%s\t %s\t %s\t %s", r.RemoteAddr, r.Method, r.URL.Path, dur)
+	h.logRequest(r, dur.String())
 }
 
-func (h *Handler) Register(method, path string, handler HandlerFunc) {
+// Register registers a new handler for a certain http method and URL.
+// It will also handle any errors returned from the handler, by responsing to
+// the erroring request with http.Error().
+// You can optionally use one or more http.Handler middleware. First middleware
+// in the list will be executed first, and then it loops forward through all
+// middlewares and lasty executes the request handler last.
+func (h *Handler) Register(method, path string, handler HandlerFunc, mw ...MiddlewareFunc) {
+	// optional run http basic auth middleware last
+	if h.opt.BasicAuth != nil {
+		mw = append(mw, h.checkBasicAuth)
+	}
+	wrapped := wrapMiddleware(handler, mw...)
+
 	h.mux.Handle(method, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		err := handler(Context{w, r, p})
+		err := wrapped(Context{w, r, p})
 		if err != nil {
-			h.log("Error: %+v\n", err)
+			h.logRequest(r, fmt.Sprintf("%+v", err))
 			switch err := errors.Cause(err).(type) {
 			case *httpError:
 				http.Error(w, err.String(), err.Status())
@@ -68,8 +117,11 @@ func (h *Handler) Register(method, path string, handler HandlerFunc) {
 	})
 }
 
-func (h *Handler) RegisterPrefix(prefix string, f func(RegisterFunc)) {
-	f(func(m, p string, handler HandlerFunc) {
-		h.Register(m, path.Join(prefix, p), handler)
-	})
+// RegisterPrefix returns a RegisterFunc function that you can call multiple
+// times to register multiple handlers under a common URL prefix.
+// You can optionally use middlewares too, the same way as in Register().
+func (h *Handler) RegisterPrefix(prefix string, mw ...MiddlewareFunc) RegisterFunc {
+	return func(m, p string, handler HandlerFunc) {
+		h.Register(m, path.Join(prefix, p), handler, mw...)
+	}
 }
