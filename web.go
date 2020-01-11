@@ -25,13 +25,6 @@ type RegisterFunc func(string, string, HandlerFunc)
 type Options struct {
 	// Optional Simple logger
 	Log *log.Logger
-
-	// Optional func to check if http basic auth user/pass is valid on
-	// every request comming in.
-	// A CheckBasicAuth middleware will be automatically attached to any
-	// registered handlers when this option is set. It will be run after
-	// all other middlewares have been executed successfully.
-	BasicAuth BasicAuthFunc
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -97,12 +90,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // in the list will be executed first, and then it loops forward through all
 // middlewares and lasty executes the request handler last.
 func (h *Handler) Register(method, path string, handler HandlerFunc, mw ...MiddlewareFunc) {
-	// optional run http basic auth middleware last
-	if h.opt.BasicAuth != nil {
-		mw = append(mw, h.checkBasicAuth)
-	}
 	wrapped := wrapMiddleware(handler, mw...)
-
 	h.mux.Handle(method, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		err := wrapped(Context{w, r, p})
 		if err != nil {

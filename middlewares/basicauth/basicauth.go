@@ -1,4 +1,4 @@
-package web
+package basicauth
 
 import (
 	"crypto/sha256"
@@ -10,14 +10,14 @@ import (
 // For more information, see:
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication
 
-// BasicAuthFunc is a function signature used for check if a username/password
+// checkFunc is a function signature used for check if a username/password
 // is valid during HTTP Basic Auth.
-// It should return true if user/pass is valid.
-type BasicAuthFunc func(string, string) bool
+// It should return true on success.
+type checkFunc func(string, string) bool
 
-// DefaultBasicAuth returns a BasicAuthFunc that securely checks if the provided
+// singleBasicAuth returns a checkFunc that securely checks if the provided
 // username/password matches the defaults.
-func DefaultBasicAuth(defaultUser, defaultPass string) BasicAuthFunc {
+func singleBasicAuth(defaultUser, defaultPass string) checkFunc {
 	// Time taken by subtle.ConstantTimeCompare() depends on the length of
 	// the byte slices, so to prevent timing based attacks we hash the strings
 	// See https://stackoverflow.com/a/39591234
@@ -38,20 +38,25 @@ func DefaultBasicAuth(defaultUser, defaultPass string) BasicAuthFunc {
 	}
 }
 
-func requestBasicAuth(w http.ResponseWriter, r *http.Request) {
+func request(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 	http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 }
 
-func (h *Handler) checkBasicAuth(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user, pass, ok := r.BasicAuth()
-		if !ok || !h.opt.BasicAuth(user, pass) {
-			requestBasicAuth(w, r)
-			return
-		}
+////////////////////////////////////////////////////////////////////////////////
 
-		// 's all good ya'll
-		next.ServeHTTP(w, r)
-	})
+func New(username, password string) func(http.Handler) http.Handler {
+	isValid := singleBasicAuth(username, password)
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			user, pass, ok := r.BasicAuth()
+			if !ok || !isValid(user, pass) {
+				request(w, r)
+				return
+			}
+
+			// 's all good ya'll
+			next.ServeHTTP(w, r)
+		})
+	}
 }
