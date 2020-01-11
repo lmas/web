@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/lmas/web/assert"
+	"github.com/lmas/web/internal/assert"
 )
 
 func basicAuth(username, password string) string {
