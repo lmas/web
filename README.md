@@ -1,5 +1,5 @@
 # web
-[![GoDoc](https://godoc.org/github.com/lmas/web?status.svg)](https://godoc.org/github.com/lmas/web)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/lmas/web)](https://pkg.go.dev/github.com/lmas/web)
 [![Tests](https://github.com/lmas/web/workflows/Tests/badge.svg?branch=master)](https://github.com/lmas/web/actions)
 
 Yet another minimal and personal DIY web framework for golang.
