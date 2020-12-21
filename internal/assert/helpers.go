@@ -8,6 +8,7 @@ import (
 	"testing"
 )
 
+// DoRequest records a client request for debug/test use
 func DoRequest(t *testing.T, handler http.Handler, method, path string, headers http.Header, body io.Reader) *http.Response {
 	t.Helper()
 	rec := httptest.NewRecorder()
@@ -19,6 +20,7 @@ func DoRequest(t *testing.T, handler http.Handler, method, path string, headers 
 	return rec.Result()
 }
 
+// Error asserts an error
 func Error(t *testing.T, got error, want error) {
 	t.Helper()
 	if got != want {
@@ -26,6 +28,7 @@ func Error(t *testing.T, got error, want error) {
 	}
 }
 
+// StatusCode asserts status code from a response
 func StatusCode(t *testing.T, got *http.Response, want int) {
 	t.Helper()
 	if got.StatusCode != want {
@@ -33,6 +36,7 @@ func StatusCode(t *testing.T, got *http.Response, want int) {
 	}
 }
 
+// Header asserts header from a response
 func Header(t *testing.T, resp *http.Response, key, val string) {
 	t.Helper()
 	v := resp.Header.Get(key)
@@ -41,6 +45,7 @@ func Header(t *testing.T, resp *http.Response, key, val string) {
 	}
 }
 
+// Body asserts body from a response
 func Body(t *testing.T, got *http.Response, want string) {
 	t.Helper()
 	b, err := ioutil.ReadAll(got.Body)

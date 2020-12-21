@@ -45,6 +45,8 @@ func requestBasicAuth(w http.ResponseWriter, r *http.Request) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// BasicAuth is a middleware that checks requests for the HTTP Basic Auth header
+// and securely validates it against the given user/password pair.
 func BasicAuth(username, password string) func(http.Handler) http.Handler {
 	isValid := singleBasicAuth(username, password)
 	return func(next http.Handler) http.Handler {
