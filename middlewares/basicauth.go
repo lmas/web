@@ -1,4 +1,4 @@
-package basicauth
+package middlewares
 
 import (
 	"crypto/sha256"
@@ -38,20 +38,20 @@ func singleBasicAuth(defaultUser, defaultPass string) checkFunc {
 	}
 }
 
-func request(w http.ResponseWriter, r *http.Request) {
+func requestBasicAuth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 	http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-func New(username, password string) func(http.Handler) http.Handler {
+func BasicAuth(username, password string) func(http.Handler) http.Handler {
 	isValid := singleBasicAuth(username, password)
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			user, pass, ok := r.BasicAuth()
 			if !ok || !isValid(user, pass) {
-				request(w, r)
+				requestBasicAuth(w, r)
 				return
 			}
 
