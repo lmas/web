@@ -74,3 +74,11 @@ func (c *Context) SetHeader(key, value string) {
 func (c *Context) GetHeader(key string) string {
 	return c.R.Header.Get(key)
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+// GetParams is a shortcut to get URL params, first one given by key.
+// See https://pkg.go.dev/github.com/julienschmidt/httprouter#Param for more info.
+func (c *Context) GetParams(key string) string {
+	return c.P.ByName(key)
+}
