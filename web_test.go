@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func testHandler(t *testing.T, method, path string, f func(Context) error) *Handler {
+func testHandler(t *testing.T, method, path string, f func(*Context) error) *Handler {
 	t.Helper()
 	h := New(nil)
 	if f != nil {
@@ -30,7 +30,7 @@ func TestSimple(t *testing.T) {
 		assert.StatusCode(t, resp, http.StatusNotFound)
 	})
 	t.Run("simple get", func(t *testing.T) {
-		h := testHandler(t, "GET", "/hello", func(ctx Context) error {
+		h := testHandler(t, "GET", "/hello", func(ctx *Context) error {
 			fmt.Fprintf(ctx.W, "hello world")
 			return nil
 		})
@@ -39,7 +39,7 @@ func TestSimple(t *testing.T) {
 		assert.Body(t, resp, "hello world")
 	})
 	t.Run("get http error", func(t *testing.T) {
-		h := testHandler(t, "GET", "/hello", func(ctx Context) error {
+		h := testHandler(t, "GET", "/hello", func(ctx *Context) error {
 			return ctx.Error(http.StatusNotImplemented, "test")
 		})
 		resp := assert.DoRequest(t, h, "GET", "/hello", nil, nil)
@@ -47,7 +47,7 @@ func TestSimple(t *testing.T) {
 		assert.Body(t, resp, "Error: \"test\"\n")
 	})
 	t.Run("get unknown error", func(t *testing.T) {
-		h := testHandler(t, "GET", "/hello", func(ctx Context) error {
+		h := testHandler(t, "GET", "/hello", func(ctx *Context) error {
 			return errors.New("test")
 		})
 		resp := assert.DoRequest(t, h, "GET", "/hello", nil, nil)
@@ -56,7 +56,7 @@ func TestSimple(t *testing.T) {
 	})
 	t.Run("panic in a handler", func(t *testing.T) {
 		msg := "test"
-		h := testHandler(t, "GET", "/hello", func(ctx Context) error {
+		h := testHandler(t, "GET", "/hello", func(ctx *Context) error {
 			panic(msg)
 		})
 		h.mux.PanicHandler = func(w http.ResponseWriter, r *http.Request, ret interface{}) {
@@ -76,15 +76,15 @@ func TestRegisterPrefix(t *testing.T) {
 	t.Run("register simple prefix", func(t *testing.T) {
 		h := testHandler(t, "", "", nil)
 		f := h.RegisterPrefix("/api")
-		hello := func(msg string) func(Context) error {
-			return func(ctx Context) error {
+		hello := func(msg string) func(*Context) error {
+			return func(ctx *Context) error {
 				fmt.Fprintf(ctx.W, msg)
 				return nil
 			}
 		}
 		f("GET", "/hello", hello("hello world"))
 		f("GET", "/hello2", hello("hello world2"))
-		f("GET", "/error", func(ctx Context) error {
+		f("GET", "/error", func(ctx *Context) error {
 			return errors.New("test")
 		})
 
@@ -109,8 +109,8 @@ func TestRegisterPrefix(t *testing.T) {
 			})
 		}
 		f := h.RegisterPrefix("/api", mw)
-		hello := func(user string) func(Context) error {
-			return func(ctx Context) error {
+		hello := func(user string) func(*Context) error {
+			return func(ctx *Context) error {
 				msg := ctx.R.Header.Get("X-MSG")
 				fmt.Fprintf(ctx.W, "%s %s", msg, user)
 				return nil

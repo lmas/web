@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"path"
+	"sync"
 	"time"
 
 	"github.com/julienschmidt/httprouter"
@@ -14,7 +15,7 @@ import (
 // HandlerFunc is a shorter convenience function signature for http handlers,
 // instead of func(http.ResponseWriter, *http.Request). It also allows for
 // easier error handling.
-type HandlerFunc func(Context) error
+type HandlerFunc func(*Context) error
 
 // RegisterFunc is a function signature used when you want to register multiple
 // handlers under a common URL path. First string is method, second string is
@@ -52,8 +53,9 @@ func (e *httpError) Status() int {
 // register handlers and middleware with sane defaults.
 // It uses github.com/julienschmidt/httprouter, for quick and easy routing.
 type Handler struct {
-	mux *httprouter.Router
-	opt *Options
+	mux         *httprouter.Router
+	opt         *Options
+	contextPool sync.Pool
 }
 
 // New returns a new Handler that implements the http.Handler interface and can
@@ -66,6 +68,9 @@ func New(opt *Options) *Handler {
 	}
 	h := &Handler{
 		opt: opt,
+	}
+	h.contextPool.New = func() interface{} {
+		return h.newContext()
 	}
 
 	h.mux = &httprouter.Router{
@@ -109,9 +114,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // in the list will be executed first, and then it loops forward through all
 // middlewares and lasty executes the request handler last.
 func (h *Handler) Register(method, path string, handler HandlerFunc, mw ...MiddlewareFunc) {
-	wrapped := wrapMiddleware(handler, mw...)
+	wrapped := h.wrapMiddleware(handler, mw...)
 	h.mux.Handle(method, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		err := wrapped(Context{w, r, p})
+		c := h.getContext()
+		c.reset(w, r, p)
+		err := wrapped(c)
 		if err != nil {
 			h.logRequest(r, fmt.Sprintf("%+v", err))
 			switch err := errors.Cause(err).(type) {
@@ -121,6 +128,8 @@ func (h *Handler) Register(method, path string, handler HandlerFunc, mw ...Middl
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			}
 		}
+		h.putContext(c)
+
 	})
 }
 

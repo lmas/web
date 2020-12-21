@@ -27,7 +27,7 @@ func TestMiddleware(t *testing.T) {
 	}
 
 	t.Run("register single middleware", func(t *testing.T) {
-		f := func(ctx Context) error {
+		f := func(ctx *Context) error {
 			fmt.Fprintf(ctx.W, ctx.R.Header.Get("X-MSG"))
 			return nil
 		}
@@ -38,7 +38,7 @@ func TestMiddleware(t *testing.T) {
 		assert.Body(t, resp, msg)
 	})
 	t.Run("register many middleware", func(t *testing.T) {
-		f := func(ctx Context) error {
+		f := func(ctx *Context) error {
 			fmt.Fprintf(ctx.W, "%s from %s", ctx.R.Header.Get("X-MSG"), ctx.P.ByName("sender"))
 			return nil
 		}
@@ -49,7 +49,7 @@ func TestMiddleware(t *testing.T) {
 		assert.Body(t, resp, msg+" from "+sender)
 	})
 	t.Run("error in handler", func(t *testing.T) {
-		f := func(ctx Context) error {
+		f := func(ctx *Context) error {
 			return errors.New("test")
 		}
 		h := testHandler(t, "", "", nil)

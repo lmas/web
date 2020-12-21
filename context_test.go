@@ -13,7 +13,7 @@ import (
 func TestJSON(t *testing.T) {
 	msg := "hello world"
 	t.Run("get json", func(t *testing.T) {
-		h := testHandler(t, "GET", "/json", func(ctx Context) error {
+		h := testHandler(t, "GET", "/json", func(ctx *Context) error {
 			return ctx.JSON(http.StatusOK, msg)
 		})
 		resp := assert.DoRequest(t, h, "GET", "/json", nil, nil)
@@ -21,7 +21,7 @@ func TestJSON(t *testing.T) {
 		assert.Body(t, resp, fmt.Sprintf("%q\n", msg))
 	})
 	t.Run("post json", func(t *testing.T) {
-		h := testHandler(t, "POST", "/json", func(ctx Context) error {
+		h := testHandler(t, "POST", "/json", func(ctx *Context) error {
 			var ret string
 			err := ctx.DecodeJSON(&ret)
 			if err != nil {
