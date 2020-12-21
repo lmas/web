@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/lmas/web/internal/assert"
 	"github.com/pkg/errors"
 )
 
@@ -26,35 +27,35 @@ func TestMiddleware(t *testing.T) {
 	}
 
 	t.Run("register single middleware", func(t *testing.T) {
-		f := func(ctx Context) error {
+		f := func(ctx *Context) error {
 			fmt.Fprintf(ctx.W, ctx.R.Header.Get("X-MSG"))
 			return nil
 		}
 		h := testHandler(t, "", "", nil)
 		h.Register("GET", "/hello", f, mw1)
-		resp := doRequest(t, h, "GET", "/hello", nil, nil)
-		assertStatusCode(t, resp, http.StatusOK)
-		assertBody(t, resp, msg)
+		resp := assert.DoRequest(t, h, "GET", "/hello", nil, nil)
+		assert.StatusCode(t, resp, http.StatusOK)
+		assert.Body(t, resp, msg)
 	})
 	t.Run("register many middleware", func(t *testing.T) {
-		f := func(ctx Context) error {
+		f := func(ctx *Context) error {
 			fmt.Fprintf(ctx.W, "%s from %s", ctx.R.Header.Get("X-MSG"), ctx.P.ByName("sender"))
 			return nil
 		}
 		h := testHandler(t, "", "", nil)
 		h.Register("GET", "/hello/:sender", f, mw1, mw2)
-		resp := doRequest(t, h, "GET", "/hello/"+sender, nil, nil)
-		assertStatusCode(t, resp, http.StatusOK)
-		assertBody(t, resp, msg+" from "+sender)
+		resp := assert.DoRequest(t, h, "GET", "/hello/"+sender, nil, nil)
+		assert.StatusCode(t, resp, http.StatusOK)
+		assert.Body(t, resp, msg+" from "+sender)
 	})
 	t.Run("error in handler", func(t *testing.T) {
-		f := func(ctx Context) error {
+		f := func(ctx *Context) error {
 			return errors.New("test")
 		}
 		h := testHandler(t, "", "", nil)
 		h.Register("GET", "/hello/:sender", f, mw1, mw2)
-		resp := doRequest(t, h, "GET", "/hello/"+sender, nil, nil)
-		assertStatusCode(t, resp, http.StatusInternalServerError)
-		assertBody(t, resp, "Internal Server Error\n")
+		resp := assert.DoRequest(t, h, "GET", "/hello/"+sender, nil, nil)
+		assert.StatusCode(t, resp, http.StatusInternalServerError)
+		assert.Body(t, resp, "Internal Server Error\n")
 	})
 }
