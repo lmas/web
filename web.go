@@ -29,6 +29,25 @@ type Options struct {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+type httpError struct {
+	status int
+	msg    string
+}
+
+func (e *httpError) Error() string {
+	return e.msg
+}
+
+func (e *httpError) String() string {
+	return fmt.Sprintf("Error: %q", e.msg)
+}
+
+func (e *httpError) Status() int {
+	return e.status
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 // Handler implements the http.Handler interface and allows you to easily
 // register handlers and middleware with sane defaults.
 // It uses github.com/julienschmidt/httprouter, for quick and easy routing.
@@ -84,7 +103,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // Register registers a new handler for a certain http method and URL.
-// It will also handle any errors returned from the handler, by responsing to
+// It will also handle any errors returned from the handler, by responding to
 // the erroring request with http.Error().
 // You can optionally use one or more http.Handler middleware. First middleware
 // in the list will be executed first, and then it loops forward through all

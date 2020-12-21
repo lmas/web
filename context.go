@@ -2,7 +2,6 @@ package web
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
@@ -16,23 +15,6 @@ type Context struct {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
-type httpError struct {
-	status int
-	msg    string
-}
-
-func (e *httpError) Error() string {
-	return e.msg
-}
-
-func (e *httpError) String() string {
-	return fmt.Sprintf("Error: %q", e.msg)
-}
-
-func (e *httpError) Status() int {
-	return e.status
-}
 
 // Error returns a special http error, for which you can specify the http
 // response status.
