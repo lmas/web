@@ -1,4 +1,4 @@
-package basicauth
+package middlewares
 
 import (
 	"encoding/base64"
@@ -22,7 +22,7 @@ func TestBasicAuth(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "ok")
 	})
-	basic := New(user, pass)
+	basic := BasicAuth(user, pass)
 	wrapped := basic(handler)
 
 	t.Run("simple valid login", func(t *testing.T) {
