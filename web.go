@@ -116,8 +116,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Register(method, path string, handler HandlerFunc, mw ...MiddlewareFunc) {
 	wrapped := h.wrapMiddleware(handler, mw...)
 	h.mux.Handle(method, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		c := h.getContext()
-		c.reset(w, r, p)
+		c := h.getContext(w, r, p)
 		err := wrapped(c)
 		if err != nil {
 			h.logRequest(r, fmt.Sprintf("%+v", err))

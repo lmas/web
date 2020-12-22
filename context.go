@@ -24,18 +24,16 @@ func (h *Handler) newContext() *Context {
 	}
 }
 
-func (h *Handler) getContext() *Context {
-	return h.contextPool.Get().(*Context)
+func (h *Handler) getContext(w http.ResponseWriter, r *http.Request, p httprouter.Params) *Context {
+	c := h.contextPool.Get().(*Context)
+	c.W = w
+	c.R = r
+	c.P = p
+	return c
 }
 
 func (h *Handler) putContext(c *Context) {
 	h.contextPool.Put(c)
-}
-
-func (c *Context) reset(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	c.W = w
-	c.R = r
-	c.P = p
 }
 
 ////////////////////////////////////////////////////////////////////////////////
