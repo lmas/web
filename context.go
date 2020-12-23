@@ -1,8 +1,11 @@
 package web
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -65,6 +68,18 @@ func (c *Context) Error(status int, msg string) error {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+
+func (c *Context) Bytes(status int, data []byte) error {
+	c.W.WriteHeader(status)
+	_, err := fmt.Fprintf(c.W, "%s\n", bytes.TrimSpace(data))
+	return err
+}
+
+func (c *Context) String(status int, data string) error {
+	c.W.WriteHeader(status)
+	_, err := fmt.Fprintf(c.W, "%s\n", strings.TrimSpace(data))
+	return err
+}
 
 // JSON is a helper for JSON encoding the data and sending it with a response status.
 func (c *Context) JSON(status int, data interface{}) error {

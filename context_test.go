@@ -11,6 +11,29 @@ import (
 	"github.com/pkg/errors"
 )
 
+func TestWriteBytesAndStrings(t *testing.T) {
+	t.Run("write bytes", func(t *testing.T) {
+		msg := []byte("hello world\n")
+		h := testHandler(t, "GET", "/hello", func(ctx *Context) error {
+			ctx.Bytes(200, msg)
+			return nil
+		})
+		resp := assert.DoRequest(t, h, "GET", "/hello", nil, nil)
+		assert.StatusCode(t, resp, http.StatusOK)
+		assert.Body(t, resp, string(msg))
+	})
+	t.Run("write string", func(t *testing.T) {
+		msg := "hello world\n"
+		h := testHandler(t, "GET", "/hello", func(ctx *Context) error {
+			ctx.String(200, msg)
+			return nil
+		})
+		resp := assert.DoRequest(t, h, "GET", "/hello", nil, nil)
+		assert.StatusCode(t, resp, http.StatusOK)
+		assert.Body(t, resp, msg)
+	})
+}
+
 func TestJSON(t *testing.T) {
 	msg := "hello world"
 	t.Run("get json", func(t *testing.T) {
@@ -55,6 +78,34 @@ func BenchmarkContextError(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		c.Error(200, msg)
+	}
+}
+
+func BenchmarkContextBytes(b *testing.B) {
+	h := newBenchmarkHandler(b)
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("GET", "/hello", nil)
+	c := h.getContext(w, r, nil)
+	msg := []byte("hello world")
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		c.Bytes(200, msg)
+	}
+}
+
+func BenchmarkContextString(b *testing.B) {
+	h := newBenchmarkHandler(b)
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("GET", "/hello", nil)
+	c := h.getContext(w, r, nil)
+	msg := "hello world"
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		c.String(200, msg)
 	}
 }
 

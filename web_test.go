@@ -143,8 +143,8 @@ func newBenchmarkHandler(b *testing.B) *Handler {
 func BenchmarkHandler(b *testing.B) {
 	h := newBenchmarkHandler(b)
 	h.Register("GET", "/hello", func(ctx *Context) error {
-		_, err := fmt.Fprintf(ctx.W, "hello world")
-		return err
+		fmt.Fprint(ctx.W, "hello world")
+		return nil
 	})
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", "/hello", nil)
