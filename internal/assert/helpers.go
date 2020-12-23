@@ -45,6 +45,19 @@ func Header(t *testing.T, resp *http.Response, key, val string) {
 	}
 }
 
+// BodyEmpty asserts response body is empty
+func BodyEmpty(t *testing.T, got *http.Response) {
+	t.Helper()
+	b, err := ioutil.ReadAll(got.Body)
+	got.Body.Close()
+	if err != nil {
+		t.Errorf("got error %q", err)
+	}
+	if len(b) != 0 {
+		t.Fatalf("got non-empty body")
+	}
+}
+
 // Body asserts body from a response
 func Body(t *testing.T, got *http.Response, want string) {
 	t.Helper()
