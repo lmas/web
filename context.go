@@ -1,11 +1,10 @@
 package web
 
 import (
-	"bytes"
 	"encoding/json"
-	"fmt"
+	"errors"
+	"io"
 	"net/http"
-	"strings"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -67,18 +66,65 @@ func (c *Context) Error(status int, msg string) error {
 	return &httpError{status, msg}
 }
 
-////////////////////////////////////////////////////////////////////////////////
+// Empty let's you send a response code with empty body.
+func (c *Context) Empty(status int) error {
+	c.W.WriteHeader(status)
+	return nil
+}
 
+// ErrInvalidRedirectCode is returned from Redirect when the redirection code
+// is out of range (300 to 308).
+var ErrInvalidRedirectCode = errors.New("invalid redirect code")
+
+// Redirect sends a redirection response.
+// It also makes sure the response code is within range.
+func (c *Context) Redirect(status int, url string) error {
+	if status < 300 || status > 308 {
+		return ErrInvalidRedirectCode
+	}
+	c.SetHeader("Location", url)
+	c.W.WriteHeader(status)
+	return nil
+}
+
+// Bytes is a quick helper to send a response, with the contents of []byte{} as body.
+// You should set a Content-Type header yourself.
 func (c *Context) Bytes(status int, data []byte) error {
 	c.W.WriteHeader(status)
-	_, err := fmt.Fprintf(c.W, "%s\n", bytes.TrimSpace(data))
+	_, err := c.W.Write(data)
 	return err
 }
 
+// String is a helper to send a simple string body, with a 'text/plain' Content-Type
+// header.
 func (c *Context) String(status int, data string) error {
+	c.SetHeader("Content-Type", "text/plain; charset=UTF-8")
+	return c.Bytes(status, []byte(data))
+}
+
+// HTML is a helper to send a simple HTML body, with a 'text/html' Content-Type
+// header.
+func (c *Context) HTML(status int, data string) error {
+	c.SetHeader("Content-Type", "text/html; charset=UTF-8")
+	return c.Bytes(status, []byte(data))
+}
+
+// Stream tries to stream the contents of an 'io.Reader'.
+// No Content-Type is auto detected, so you should set it yourself.
+// Warning: if http.Server timeouts are set too short, this write might time out.
+func (c *Context) Stream(status int, r io.Reader) error {
 	c.W.WriteHeader(status)
-	_, err := fmt.Fprintf(c.W, "%s\n", strings.TrimSpace(data))
+	_, err := io.Copy(c.W, r)
 	return err
+}
+
+// File attempts to send a file (located at path).
+// Content-Type is autodetected and errors will be handled with a 'http.Error'.
+// See 'http.ServeFile' and 'http.ServeContent' for more info.
+// Warning: if http.Server timeouts are set too short, this write might time out.
+func (c *Context) File(status int, path string) error {
+	http.ServeFile(c.W, c.R, path) // doesn't return any errors, handled with http.Error response
+	return nil
 }
 
 // JSON is a helper for JSON encoding the data and sending it with a response status.
