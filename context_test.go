@@ -3,6 +3,7 @@ package web
 import (
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -36,4 +37,37 @@ func TestJSON(t *testing.T) {
 		assert.StatusCode(t, resp, http.StatusOK)
 		assert.Body(t, resp, "")
 	})
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+func BenchmarkContextError(b *testing.B) {
+	// This benchmark is pretty useless but eeeh... might aswell keep it
+	// as an example performance goal for the other benchmarks
+	// (check the output results, they're pretty much maxed...)
+	h := newBenchmarkHandler(b)
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("GET", "/hello", nil)
+	c := h.getContext(w, r, nil)
+	msg := "hello world"
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		c.Error(200, msg)
+	}
+}
+
+func BenchmarkContextJSON(b *testing.B) {
+	h := newBenchmarkHandler(b)
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("GET", "/hello", nil)
+	c := h.getContext(w, r, nil)
+	msg := "hello world"
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		c.JSON(200, msg)
+	}
 }

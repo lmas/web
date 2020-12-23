@@ -38,6 +38,26 @@ func (h *Handler) putContext(c *Context) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// SetHeader is a shortcut to set a header value for a response.
+func (c *Context) SetHeader(key, value string) {
+	c.W.Header().Set(key, value)
+}
+
+// GetHeader is a shortcut to get a header value from a request.
+func (c *Context) GetHeader(key string) string {
+	return c.R.Header.Get(key)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+// GetParams is a shortcut to get URL params, first one given by key.
+// See https://pkg.go.dev/github.com/julienschmidt/httprouter#Param for more info.
+func (c *Context) GetParams(key string) string {
+	return c.P.ByName(key)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 // Error returns a special http error, for which you can specify the http
 // response status.
 func (c *Context) Error(status int, msg string) error {
@@ -59,24 +79,4 @@ func (c *Context) JSON(status int, data interface{}) error {
 func (c *Context) DecodeJSON(data interface{}) error {
 	defer c.R.Body.Close()
 	return json.NewDecoder(c.R.Body).Decode(data)
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-// SetHeader is a shortcut to set a header value for a response.
-func (c *Context) SetHeader(key, value string) {
-	c.W.Header().Set(key, value)
-}
-
-// GetHeader is a shortcut to get a header value from a request.
-func (c *Context) GetHeader(key string) string {
-	return c.R.Header.Get(key)
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-// GetParams is a shortcut to get URL params, first one given by key.
-// See https://pkg.go.dev/github.com/julienschmidt/httprouter#Param for more info.
-func (c *Context) GetParams(key string) string {
-	return c.P.ByName(key)
 }
