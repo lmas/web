@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -20,7 +21,7 @@ type Context struct {
 ////////////////////////////////////////////////////////////////////////////////
 // Utilize a sync.Pool to keep recently unused context objects for later reuse.
 
-func (h *Handler) newContext() *Context {
+func (h *Handler) newContext() interface{} {
 	return &Context{
 		H: h,
 	}
@@ -35,6 +36,9 @@ func (h *Handler) getContext(w http.ResponseWriter, r *http.Request, p httproute
 }
 
 func (h *Handler) putContext(c *Context) {
+	c.W = nil
+	c.R = nil
+	c.P = nil
 	h.contextPool.Put(c)
 }
 
@@ -72,7 +76,7 @@ func (c *Context) Empty(status int) error {
 	return nil
 }
 
-// ErrInvalidRedirectCode is returned from Redirect when the redirection code
+// ErrInvalidRedirectCode is returned from Redirect() when the redirection code
 // is out of range (300 to 308).
 var ErrInvalidRedirectCode = errors.New("invalid redirect code")
 
@@ -126,6 +130,52 @@ func (c *Context) File(status int, path string) error {
 	http.ServeFile(c.W, c.R, path) // doesn't return any errors, handled with http.Error response
 	return nil
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+func (h *Handler) newTemplateBuff() interface{} {
+	return &bytes.Buffer{}
+}
+
+func (h *Handler) getTemplateBuff() *bytes.Buffer {
+	return h.templatePool.Get().(*bytes.Buffer)
+}
+
+func (h *Handler) putTemplateBuff(b *bytes.Buffer) {
+	b.Reset()
+	h.templatePool.Put(b)
+}
+
+var (
+	// ErrNoSuchTemplate is returned from Render() when trying to render
+	// a missing/invalid template.
+	ErrNoSuchTemplate = errors.New("invalid template name")
+)
+
+// Render tries to render a HTML template (using tmpl as key for the
+// Options.Template map, from the handler).
+// Optional data can be provided for the template.
+func (c *Context) Render(status int, tmpl string, data interface{}) error {
+	t, found := c.H.opt.Templates[tmpl]
+	if !found {
+		return ErrNoSuchTemplate
+	}
+	// If there's any errors in the template we'll catch them here using a
+	// bytes.Buffer and don't risk messing up the output to the client
+	// (by writing directly to context.W too soon). Using a pool should
+	// speed things up too (and play nicer with the GC etc. etc.).
+	buff := c.H.getTemplateBuff()
+	defer c.H.putTemplateBuff(buff)
+	if err := t.Execute(buff, data); err != nil {
+		return err
+	}
+
+	c.SetHeader("Content-Type", "text/html; charset=UTF-8")
+	_, err := buff.WriteTo(c.W)
+	return err
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 // JSON is a helper for JSON encoding the data and sending it with a response status.
 func (c *Context) JSON(status int, data interface{}) error {

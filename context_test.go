@@ -2,16 +2,16 @@ package web
 
 import (
 	"fmt"
+	"html/template"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/lmas/web/internal/assert"
-	"github.com/pkg/errors"
 )
 
-func TestSimpleResponseWrites(t *testing.T) {
+func TestSimpleResponses(t *testing.T) {
 	h := testHandler(t, "", "", nil)
 	req, _ := http.NewRequest("GET", "/", nil)
 	testContext := func(f func(*Context) error) *http.Response {
@@ -54,34 +54,45 @@ func TestSimpleResponseWrites(t *testing.T) {
 		assert.Header(t, resp, "Content-Type", "text/html; charset=UTF-8")
 		assert.Body(t, resp, msg)
 	})
-}
-
-func TestJSON(t *testing.T) {
-	msg := "hello world"
-	t.Run("write response json", func(t *testing.T) {
-		h := testHandler(t, "GET", "/json", func(ctx *Context) error {
-			return ctx.JSON(http.StatusOK, msg)
+	t.Run("write template", func(t *testing.T) {
+		h.opt.Templates = map[string]*template.Template{
+			"test": template.Must(template.New("test").Parse("hello {{.Name}}")),
+		}
+		name := "world"
+		resp := testContext(func(c *Context) error {
+			return c.Render(200, "test", map[string]string{
+				"Name": name,
+			})
 		})
-		resp := assert.DoRequest(t, h, "GET", "/json", nil, nil)
 		assert.StatusCode(t, resp, http.StatusOK)
+		assert.Header(t, resp, "Content-Type", "text/html; charset=UTF-8")
+		assert.Body(t, resp, "hello world")
+	})
+	t.Run("write json", func(t *testing.T) {
+		msg := "hello world"
+		resp := testContext(func(c *Context) error {
+			return c.JSON(200, msg)
+		})
+		assert.StatusCode(t, resp, http.StatusOK)
+		assert.Header(t, resp, "Content-Type", "application/json; charset=utf-8")
 		assert.Body(t, resp, fmt.Sprintf("%q\n", msg))
 	})
-	t.Run("read request json", func(t *testing.T) {
-		h := testHandler(t, "POST", "/json", func(ctx *Context) error {
-			var ret string
-			err := ctx.DecodeJSON(&ret)
-			if err != nil {
-				return ctx.Error(http.StatusInternalServerError, errors.Wrap(err, "decoding body").Error())
-			}
-			if ret != msg {
-				return ctx.Error(http.StatusBadRequest, errors.New("body mismatch").Error())
-			}
-			return nil
-		})
-		resp := assert.DoRequest(t, h, "POST", "/json", nil, strings.NewReader(fmt.Sprintf("%q\n", msg)))
-		assert.StatusCode(t, resp, http.StatusOK)
-		assert.Body(t, resp, "")
-	})
+}
+
+func TestDecodeJSON(t *testing.T) {
+	h := testHandler(t, "", "", nil)
+	msg := "hello world"
+	req, _ := http.NewRequest("GET", "/", strings.NewReader(fmt.Sprintf("%q\n", msg)))
+	rec := httptest.NewRecorder()
+	c := h.getContext(rec, req, nil)
+
+	var s string
+	if err := c.DecodeJSON(&s); err != nil {
+		t.Fatalf("error decoding json body: %s", err)
+	}
+	if s != msg {
+		t.Errorf("got json body %q, wanted %q", s, msg)
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -128,6 +139,22 @@ func BenchmarkContextString(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		c.String(200, msg)
+	}
+}
+
+func BenchmarkContextRender(b *testing.B) {
+	h := newBenchmarkHandler(b)
+	h.opt.Templates = map[string]*template.Template{
+		"test": template.Must(template.New("test").Parse("hello world")),
+	}
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("GET", "/hello", nil)
+	c := h.getContext(w, r, nil)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		c.Render(200, "test", nil)
 	}
 }
 
