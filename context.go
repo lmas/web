@@ -171,6 +171,7 @@ func (c *Context) Render(status int, tmpl string, data interface{}) error {
 	}
 
 	c.SetHeader("Content-Type", "text/html; charset=UTF-8")
+	c.W.WriteHeader(status)
 	_, err := buff.WriteTo(c.W)
 	return err
 }
