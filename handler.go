@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"path"
 	"sync"
-	"time"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
@@ -104,10 +103,7 @@ func (h *Handler) logRequest(r *http.Request, msg string) {
 
 // ServeHTTP implements the http.Handler interface.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
 	h.mux.ServeHTTP(w, r)
-	dur := time.Since(start)
-	h.logRequest(r, dur.String())
 }
 
 // Register registers a new handler for a certain http method and URL.
