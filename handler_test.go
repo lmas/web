@@ -12,7 +12,7 @@ import (
 
 func testHandler(t *testing.T, method, path string, f func(*Context) error) *Handler {
 	t.Helper()
-	h := New(nil)
+	h := NewHandler(nil)
 	if f != nil {
 		h.Register(method, path, f)
 	}
@@ -133,7 +133,7 @@ func TestRegisterPrefix(t *testing.T) {
 ////////////////////////////////////////////////////////////////////////////////
 
 func newBenchmarkHandler(b *testing.B) *Handler {
-	h := New(nil)
+	h := NewHandler(nil)
 	h.mux.PanicHandler = func(w http.ResponseWriter, r *http.Request, ret interface{}) {
 		b.Fatalf("Panic: %+v", ret)
 	}

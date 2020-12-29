@@ -12,26 +12,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-// HandlerFunc is a shorter convenience function signature for http handlers,
-// instead of func(http.ResponseWriter, *http.Request). It also allows for
-// easier error handling.
-type HandlerFunc func(*Context) error
-
-// RegisterFunc is a function signature used when you want to register multiple
-// handlers under a common URL path. First string is method, second string is
-// the URL and last field is the HandlerFunc you want to register.
-type RegisterFunc func(string, string, HandlerFunc)
-
-// Options contains all the optional settings for a Handler.
-type Options struct {
-	// Simple logger
-	Log *log.Logger
-	// Templates that can be rendered using context.Render()
-	Templates map[string]*template.Template
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 type httpError struct {
 	status int
 	msg    string
@@ -51,23 +31,43 @@ func (e *httpError) Status() int {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// HandlerFunc is a shorter convenience function signature for http handlers,
+// instead of func(http.ResponseWriter, *http.Request). It also allows for
+// easier error handling.
+type HandlerFunc func(*Context) error
+
+// RegisterFunc is a function signature used when you want to register multiple
+// handlers under a common URL path. First string is method, second string is
+// the URL and last field is the HandlerFunc you want to register.
+type RegisterFunc func(string, string, HandlerFunc)
+
+// Options contains all the optional settings for a Handler.
+type HandlerOptions struct {
+	// Simple logger
+	Log *log.Logger
+	// Templates that can be rendered using context.Render()
+	Templates map[string]*template.Template
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 // Handler implements the http.Handler interface and allows you to easily
 // register handlers and middleware with sane defaults.
 // It uses github.com/julienschmidt/httprouter, for quick and easy routing.
 type Handler struct {
 	mux          *httprouter.Router
-	opt          *Options
+	opt          *HandlerOptions
 	contextPool  sync.Pool
 	templatePool sync.Pool
 }
 
 // New returns a new Handler that implements the http.Handler interface and can
 // be run with http.ListenAndServe(":8000", handler).
-// You can optionally proved an Options struct with custom settings.
+// You can optionally proved an HandlerOptions struct with custom settings.
 // Any panics caused by a registered handler will be caught and optionaly logged.
-func New(opt *Options) *Handler {
+func NewHandler(opt *HandlerOptions) *Handler {
 	if opt == nil {
-		opt = &Options{}
+		opt = &HandlerOptions{}
 	}
 	h := &Handler{
 		opt: opt,
