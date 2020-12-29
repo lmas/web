@@ -46,6 +46,7 @@ MIT licensed. See the LICENSE file for details.
         https://www.ssllabs.com/ssl-pulse/
 
 - Go's TLS defaults (cipher suits etc.)
+
         https://go.googlesource.com/go/+blame/go1.15.6/src/crypto/tls/common.go
 
 - Checking for issues in the source code
