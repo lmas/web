@@ -10,13 +10,17 @@ test:
 cover:
 	go tool cover -html="${COVER}" -o="${COVER_HTML}"
 
+.PHONY: bench
+bench:
+	go test -race -cover -bench=.
+
 .PHONY: lint
 lint:
 	golint ./...
 
-.PHONY: bench
-bench:
-	go test -race -cover -bench=.
+.PHONY: secure
+secure:
+	gosec -quiet -fmt=golint ./...
 
 .PHONY: clean
 clean:

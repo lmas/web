@@ -49,7 +49,7 @@ func Header(t *testing.T, resp *http.Response, key, val string) {
 func BodyEmpty(t *testing.T, got *http.Response) {
 	t.Helper()
 	b, err := ioutil.ReadAll(got.Body)
-	got.Body.Close()
+	_ = got.Body.Close() // don't care about any error
 	if err != nil {
 		t.Errorf("got error %q", err)
 	}
@@ -62,7 +62,7 @@ func BodyEmpty(t *testing.T, got *http.Response) {
 func Body(t *testing.T, got *http.Response, want string) {
 	t.Helper()
 	b, err := ioutil.ReadAll(got.Body)
-	got.Body.Close()
+	_ = got.Body.Close()
 	if err != nil {
 		t.Errorf("got error %q", err)
 	}
