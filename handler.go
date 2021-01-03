@@ -41,7 +41,7 @@ type HandlerFunc func(*Context) error
 // the URL and last field is the HandlerFunc you want to register.
 type RegisterFunc func(string, string, HandlerFunc)
 
-// Options contains all the optional settings for a Handler.
+// HandlerOptions contains all the optional settings for a Handler.
 type HandlerOptions struct {
 	// Simple logger
 	Log *log.Logger
@@ -61,8 +61,8 @@ type Handler struct {
 	templatePool sync.Pool
 }
 
-// New returns a new Handler that implements the http.Handler interface and can
-// be run with http.ListenAndServe(":8000", handler).
+// NewHandler returns a new Handler that implements the http.Handler interface
+// and can be run with http.ListenAndServe(":8000", handler).
 // You can optionally proved an HandlerOptions struct with custom settings.
 // Any panics caused by a registered handler will be caught and optionaly logged.
 func NewHandler(opt *HandlerOptions) *Handler {
@@ -106,6 +106,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.mux.ServeHTTP(w, r)
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 // Register registers a new handler for a certain http method and URL.
 // It will also handle any errors returned from the handler, by responding to
 // the erroring request with http.Error().
@@ -138,4 +140,11 @@ func (h *Handler) RegisterPrefix(prefix string, mw ...MiddlewareFunc) RegisterFu
 	return func(m, p string, handler HandlerFunc) {
 		h.Register(m, path.Join(prefix, p), handler, mw...)
 	}
+}
+
+// File is a simple helper to serve a http GET request, for a single file on a URL path.
+func (h *Handler) File(path, file string) {
+	h.Register("GET", path, func(c *Context) error {
+		return c.File(200, file)
+	})
 }
