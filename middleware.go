@@ -20,8 +20,7 @@ func (h *Handler) wrapMiddleware(handler HandlerFunc, mw ...MiddlewareFunc) Hand
 	var params httprouter.Params
 	var wrapped http.Handler
 	wrapped = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c := h.getContext()
-		c.reset(w, r, params)
+		c := h.getContext(w, r, params)
 		err = handler(c)
 		h.putContext(c)
 	})

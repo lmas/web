@@ -3,6 +3,7 @@ package web
 import (
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/lmas/web/internal/assert"
@@ -11,7 +12,7 @@ import (
 
 func testHandler(t *testing.T, method, path string, f func(*Context) error) *Handler {
 	t.Helper()
-	h := New(nil)
+	h := NewHandler(nil)
 	if f != nil {
 		h.Register(method, path, f)
 	}
@@ -127,4 +128,30 @@ func TestRegisterPrefix(t *testing.T) {
 		assert.StatusCode(t, resp, http.StatusOK)
 		assert.Body(t, resp, "hello world2")
 	})
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+func newBenchmarkHandler(b *testing.B) *Handler {
+	h := NewHandler(nil)
+	h.mux.PanicHandler = func(w http.ResponseWriter, r *http.Request, ret interface{}) {
+		b.Fatalf("Panic: %+v", ret)
+	}
+	return h
+}
+
+func BenchmarkHandler(b *testing.B) {
+	h := newBenchmarkHandler(b)
+	h.Register("GET", "/hello", func(ctx *Context) error {
+		fmt.Fprint(ctx.W, "hello world")
+		return nil
+	})
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("GET", "/hello", nil)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		h.ServeHTTP(w, r)
+	}
 }

@@ -2,33 +2,15 @@ package web
 
 import (
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"path"
 	"sync"
-	"time"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/pkg/errors"
 )
-
-// HandlerFunc is a shorter convenience function signature for http handlers,
-// instead of func(http.ResponseWriter, *http.Request). It also allows for
-// easier error handling.
-type HandlerFunc func(*Context) error
-
-// RegisterFunc is a function signature used when you want to register multiple
-// handlers under a common URL path. First string is method, second string is
-// the URL and last field is the HandlerFunc you want to register.
-type RegisterFunc func(string, string, HandlerFunc)
-
-// Options contains all the optional settings for a Handler.
-type Options struct {
-	// Optional Simple logger
-	Log *log.Logger
-}
-
-////////////////////////////////////////////////////////////////////////////////
 
 type httpError struct {
 	status int
@@ -49,29 +31,49 @@ func (e *httpError) Status() int {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// HandlerFunc is a shorter convenience function signature for http handlers,
+// instead of func(http.ResponseWriter, *http.Request). It also allows for
+// easier error handling.
+type HandlerFunc func(*Context) error
+
+// RegisterFunc is a function signature used when you want to register multiple
+// handlers under a common URL path. First string is method, second string is
+// the URL and last field is the HandlerFunc you want to register.
+type RegisterFunc func(string, string, HandlerFunc)
+
+// Options contains all the optional settings for a Handler.
+type HandlerOptions struct {
+	// Simple logger
+	Log *log.Logger
+	// Templates that can be rendered using context.Render()
+	Templates map[string]*template.Template
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 // Handler implements the http.Handler interface and allows you to easily
 // register handlers and middleware with sane defaults.
 // It uses github.com/julienschmidt/httprouter, for quick and easy routing.
 type Handler struct {
-	mux         *httprouter.Router
-	opt         *Options
-	contextPool sync.Pool
+	mux          *httprouter.Router
+	opt          *HandlerOptions
+	contextPool  sync.Pool
+	templatePool sync.Pool
 }
 
 // New returns a new Handler that implements the http.Handler interface and can
 // be run with http.ListenAndServe(":8000", handler).
-// You can optionally proved an Options struct with custom settings.
+// You can optionally proved an HandlerOptions struct with custom settings.
 // Any panics caused by a registered handler will be caught and optionaly logged.
-func New(opt *Options) *Handler {
+func NewHandler(opt *HandlerOptions) *Handler {
 	if opt == nil {
-		opt = &Options{}
+		opt = &HandlerOptions{}
 	}
 	h := &Handler{
 		opt: opt,
 	}
-	h.contextPool.New = func() interface{} {
-		return h.newContext()
-	}
+	h.contextPool.New = h.newContext
+	h.templatePool.New = h.newTemplateBuff
 
 	h.mux = &httprouter.Router{
 		RedirectTrailingSlash:  true,
@@ -101,10 +103,7 @@ func (h *Handler) logRequest(r *http.Request, msg string) {
 
 // ServeHTTP implements the http.Handler interface.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
 	h.mux.ServeHTTP(w, r)
-	dur := time.Since(start)
-	h.logRequest(r, dur.String())
 }
 
 // Register registers a new handler for a certain http method and URL.
@@ -116,8 +115,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Register(method, path string, handler HandlerFunc, mw ...MiddlewareFunc) {
 	wrapped := h.wrapMiddleware(handler, mw...)
 	h.mux.Handle(method, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		c := h.getContext()
-		c.reset(w, r, p)
+		c := h.getContext(w, r, p)
+		defer h.putContext(c)
 		err := wrapped(c)
 		if err != nil {
 			h.logRequest(r, fmt.Sprintf("%+v", err))
@@ -128,7 +127,6 @@ func (h *Handler) Register(method, path string, handler HandlerFunc, mw ...Middl
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			}
 		}
-		h.putContext(c)
 
 	})
 }
