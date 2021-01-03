@@ -18,7 +18,7 @@ type ServerOptions struct {
 	Log     *log.Logger
 }
 
-func NewServer(opt ServerOptions) *http.Server {
+func NewServer(opt *ServerOptions) *http.Server {
 	tlsConf := &tls.Config{
 		MinVersion: tls.VersionTLS13,
 		// Don't need to change these, as go1.15 has pretty good defaults
