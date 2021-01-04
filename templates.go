@@ -5,16 +5,14 @@ import (
 	"path/filepath"
 )
 
-// LoadTemplates is a helper for quickly loading template files from a dir (using
-// a filepath.Glob pattern) and an optional FuncMap. The returned map can be used
-// straight away in the Options{} struct for the web handler.
+// LoadTemplates is a helper for quickly loading template files from a dir (using a filepath.Glob pattern) and an
+// optional FuncMap. The returned map can be used straight away in the Options{} struct for the web handler.
 // Templates are sorted (and parsed) by their file names.
 //
-// NOTE: it will cause a panic on any errors (cuz I think it's bad enough, while
-// trying to start up the web server).
+// NOTE: it will cause a panic on any errors (cuz I think it's bad enough, while trying to start up the web server).
 //
-// TODO: rewrite this helper to use embed.FS instead, after go1.16 has landed
-// in feb 2021 (see https://tip.golang.org/pkg/embed/)
+// TODO: rewrite this helper to use embed.FS instead, after go1.16 has landed in feb 2021
+//       (see https://tip.golang.org/pkg/embed/)
 func LoadTemplates(globDir string, funcs template.FuncMap) map[string]*template.Template {
 	files, err := filepath.Glob(globDir)
 	if err != nil {
@@ -33,9 +31,8 @@ func LoadTemplates(globDir string, funcs template.FuncMap) map[string]*template.
 	return list
 }
 
-// LoadTemplatesWithLayout works basicly in the same way as LoadTemplates,
-// except (!) the first template will be used as the base layout for the other
-// templates.
+// LoadTemplatesWithLayout works basicly in the same way as LoadTemplates, except (!) the first template will be used
+// as the base layout for the other templates.
 //
 // NOTE: the layout template will be unavailable to render stand alone
 func LoadTemplatesWithLayout(globDir string, funcs template.FuncMap) map[string]*template.Template {

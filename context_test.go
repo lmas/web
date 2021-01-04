@@ -95,12 +95,11 @@ func TestDecodeJSON(t *testing.T) {
 	}
 }
 
-////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 func BenchmarkContextError(b *testing.B) {
-	// This benchmark is pretty useless but eeeh... might aswell keep it
-	// as an example performance goal for the other benchmarks
-	// (check the output results, they're pretty much maxed...)
+	// This benchmark is pretty useless but eeeh... might aswell keep it as an example performance goal for the
+	// other benchmarks (check the output results, they're pretty much maxed...)
 	h := newBenchmarkHandler(b)
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", "/hello", nil)

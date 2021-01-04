@@ -18,7 +18,7 @@ type Context struct {
 	P httprouter.Params
 }
 
-////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // Utilize a sync.Pool to keep recently unused context objects for later reuse.
 
 func (h *Handler) newContext() interface{} {
@@ -42,7 +42,7 @@ func (h *Handler) putContext(c *Context) {
 	h.contextPool.Put(c)
 }
 
-////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // SetHeader is a shortcut to set a header value for a response.
 func (c *Context) SetHeader(key, value string) {
@@ -54,7 +54,7 @@ func (c *Context) GetHeader(key string) string {
 	return c.R.Header.Get(key)
 }
 
-////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // GetParams is a shortcut to get URL params, first one given by key.
 // See https://pkg.go.dev/github.com/julienschmidt/httprouter#Param for more info.
@@ -62,10 +62,9 @@ func (c *Context) GetParams(key string) string {
 	return c.P.ByName(key)
 }
 
-////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Error returns a special http error, for which you can specify the http
-// response status.
+// Error returns a special http error, for which you can specify the http response status.
 func (c *Context) Error(status int, msg string) error {
 	return &httpError{status, msg}
 }
@@ -76,12 +75,10 @@ func (c *Context) Empty(status int) error {
 	return nil
 }
 
-// ErrInvalidRedirectCode is returned from Redirect() when the redirection code
-// is out of range (300 to 308).
+// ErrInvalidRedirectCode is returned from Redirect() when the redirection code is out of range (300 to 308).
 var ErrInvalidRedirectCode = errors.New("invalid redirect code")
 
-// Redirect sends a redirection response.
-// It also makes sure the response code is within range.
+// Redirect sends a redirection response. It also makes sure the response code is within range.
 func (c *Context) Redirect(status int, url string) error {
 	if status < 300 || status > 308 {
 		return ErrInvalidRedirectCode
@@ -91,30 +88,27 @@ func (c *Context) Redirect(status int, url string) error {
 	return nil
 }
 
-// Bytes is a quick helper to send a response, with the contents of []byte{} as body.
-// You should set a Content-Type header yourself.
+// Bytes is a quick helper to send a response, with the contents of []byte{} as body. You should set a Content-Type header yourself.
 func (c *Context) Bytes(status int, data []byte) error {
 	c.W.WriteHeader(status)
 	_, err := c.W.Write(data)
 	return err
 }
 
-// String is a helper to send a simple string body, with a 'text/plain' Content-Type
-// header.
+// String is a helper to send a simple string body, with a 'text/plain' Content-Type header.
 func (c *Context) String(status int, data string) error {
 	c.SetHeader("Content-Type", "text/plain; charset=UTF-8")
 	return c.Bytes(status, []byte(data))
 }
 
-// HTML is a helper to send a simple HTML body, with a 'text/html' Content-Type
-// header.
+// HTML is a helper to send a simple HTML body, with a 'text/html' Content-Type header.
 func (c *Context) HTML(status int, data string) error {
 	c.SetHeader("Content-Type", "text/html; charset=UTF-8")
 	return c.Bytes(status, []byte(data))
 }
 
-// Stream tries to stream the contents of an 'io.Reader'.
-// No Content-Type is auto detected, so you should set it yourself.
+// Stream tries to stream the contents of an 'io.Reader'. No Content-Type is auto detected, so you should set it
+// yourself.
 // Warning: if http.Server timeouts are set too short, this write might time out.
 func (c *Context) Stream(status int, r io.Reader) error {
 	c.W.WriteHeader(status)
@@ -122,16 +116,15 @@ func (c *Context) Stream(status int, r io.Reader) error {
 	return err
 }
 
-// File attempts to send a file (located at path).
-// Content-Type is autodetected and errors will be handled with a 'http.Error'.
-// See 'http.ServeFile' and 'http.ServeContent' for more info.
+// File attempts to send a file (located at path). Content-Type is autodetected and errors will be handled with a
+// 'http.Error'. See 'http.ServeFile' and 'http.ServeContent' for more info.
 // Warning: if http.Server timeouts are set too short, this write might time out.
 func (c *Context) File(status int, path string) error {
 	http.ServeFile(c.W, c.R, path) // doesn't return any errors, handled with http.Error response
 	return nil
 }
 
-////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 func (h *Handler) newTemplateBuff() interface{} {
 	return &bytes.Buffer{}
@@ -147,23 +140,21 @@ func (h *Handler) putTemplateBuff(b *bytes.Buffer) {
 }
 
 var (
-	// ErrNoSuchTemplate is returned from Render() when trying to render
-	// a missing/invalid template.
+	// ErrNoSuchTemplate is returned from Render() when trying to render a missing/invalid template.
 	ErrNoSuchTemplate = errors.New("invalid template name")
 )
 
-// Render tries to render a HTML template (using tmpl as key for the
-// Options.Template map, from the handler).
+// Render tries to render a HTML template (using tmpl as key for the Options.Template map, from the handler).
 // Optional data can be provided for the template.
 func (c *Context) Render(status int, tmpl string, data interface{}) error {
 	t, found := c.H.opt.Templates[tmpl]
 	if !found {
+		// TODO: might want to show "invalid template name: the_name.html" instead
 		return ErrNoSuchTemplate
 	}
-	// If there's any errors in the template we'll catch them here using a
-	// bytes.Buffer and don't risk messing up the output to the client
-	// (by writing directly to context.W too soon). Using a pool should
-	// speed things up too (and play nicer with the GC etc. etc.).
+	// If there's any errors in the template we'll catch them here using a bytes.Buffer and don't risk messing up
+	// the output to the client (by writing directly to context.W too soon). Using a pool should speed things up
+	// too (and play nicer with the GC etc. etc.).
 	buff := c.H.getTemplateBuff()
 	defer c.H.putTemplateBuff(buff)
 	if err := t.Execute(buff, data); err != nil {
@@ -176,7 +167,7 @@ func (c *Context) Render(status int, tmpl string, data interface{}) error {
 	return err
 }
 
-////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // JSON is a helper for JSON encoding the data and sending it with a response status.
 func (c *Context) JSON(status int, data interface{}) error {

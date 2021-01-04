@@ -12,17 +12,20 @@ import (
 // https://wiki.mozilla.org/Security/Server_Side_TLS
 // https://go.googlesource.com/go/+blame/go1.15.6/src/crypto/tls/common.go
 
+// ServerOptions contaisn settings that will be used when creating a new, secure http.Server (via NewServer()).
 type ServerOptions struct {
 	Addr    string
 	Handler http.Handler
 	Log     *log.Logger
 }
 
+// NewServer creates and sets up a new http.Server, using safe settings that should make it safer to expose to the
+// internet. Settings are sourced from better informed security people and their published works :)
 func NewServer(opt *ServerOptions) *http.Server {
 	tlsConf := &tls.Config{
 		MinVersion: tls.VersionTLS13,
-		// Don't need to change these, as go1.15 has pretty good defaults
-		// (as per mozilla's recommendations, for modern config)
+		// Don't need to change these, as go1.15 has pretty good defaults (as per mozilla's recommendations,
+		// for modern config)
 		// CipherSuites:
 		// CurvePreferences:
 		//PreferServerCipherSuites: true,
@@ -31,8 +34,8 @@ func NewServer(opt *ServerOptions) *http.Server {
 		// https://github.com/golang/crypto/blob/eec23a3978ad/acme/autocert/autocert.go#L220
 	}
 
-	// TODO: start a 2nd http server that redirects to https, see the cloudflare
-	// blog and mozilla tls generator for examples
+	// TODO: start a 2nd http server that redirects to https, see the cloudflare blog and mozilla tls generator
+	// for examples
 
 	// NOTE: no need to set a tcp keep-alive, go1.15 has a default of 15s, see
 	// https://go.googlesource.com/go/+/go1.15.6/src/net/dial.go#17
@@ -44,8 +47,8 @@ func NewServer(opt *ServerOptions) *http.Server {
 		ErrorLog:    opt.Log,
 		TLSConfig:   tlsConf,
 		ReadTimeout: 10 * time.Second,
-		// TODO: might to want ReadHeaderTimeout instead, so handlers can
-		// decide for themselves when to time out a body read?
+		// TODO: might to want ReadHeaderTimeout instead, so handlers can decide for themselves when to time
+		// out a body read?
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
 		// MaxHeaderBytes: defaults to 1mb, per http.DefaultMaxHeaderBytes
