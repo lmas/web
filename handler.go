@@ -46,6 +46,9 @@ type HandlerOptions struct {
 	Log *log.Logger
 	// Templates that can be rendered using context.Render()
 	Templates map[string]*template.Template
+	// NotFound is a http.Handler that will be called for '404 not found" errors. If not set it will default to
+	// http.NotFoundHandler()
+	NotFound http.Handler
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -67,6 +70,9 @@ func NewHandler(opt *HandlerOptions) *Handler {
 	if opt == nil {
 		opt = &HandlerOptions{}
 	}
+	if opt.NotFound == nil {
+		opt.NotFound = http.NotFoundHandler()
+	}
 	h := &Handler{
 		opt: opt,
 	}
@@ -78,7 +84,7 @@ func NewHandler(opt *HandlerOptions) *Handler {
 		RedirectFixedPath:      true,
 		HandleMethodNotAllowed: true,
 		HandleOPTIONS:          true,
-		NotFound:               http.NotFoundHandler(),
+		NotFound:               opt.NotFound,
 		PanicHandler: func(w http.ResponseWriter, r *http.Request, ret interface{}) {
 			h.logRequest(r, fmt.Sprintf("%+v", ret))
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
