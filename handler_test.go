@@ -45,7 +45,7 @@ func TestSimple(t *testing.T) {
 		})
 		resp := assert.DoRequest(t, h, "GET", "/hello", nil, nil)
 		assert.StatusCode(t, resp, http.StatusNotImplemented)
-		assert.Body(t, resp, "Error: \"test\"\n")
+		assert.Body(t, resp, "test\n")
 	})
 	t.Run("get unknown error", func(t *testing.T) {
 		h := testHandler(t, "GET", "/hello", func(ctx *Context) error {

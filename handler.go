@@ -78,6 +78,7 @@ func NewHandler(opt *HandlerOptions) *Handler {
 		RedirectFixedPath:      true,
 		HandleMethodNotAllowed: true,
 		HandleOPTIONS:          true,
+		NotFound:               http.NotFoundHandler(),
 		PanicHandler: func(w http.ResponseWriter, r *http.Request, ret interface{}) {
 			h.logRequest(r, fmt.Sprintf("%+v", ret))
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -120,7 +121,7 @@ func (h *Handler) Register(method, path string, handler HandlerFunc, mw ...Middl
 			h.logRequest(r, fmt.Sprintf("%+v", err))
 			switch err := errors.Cause(err).(type) {
 			case *httpError:
-				http.Error(w, err.String(), err.Status())
+				http.Error(w, err.Error(), err.Status())
 			default:
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			}
