@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"path"
 	"sync"
 
@@ -144,6 +145,9 @@ func (h *Handler) RegisterPrefix(prefix string, mw ...MiddlewareFunc) RegisterFu
 
 // File is a simple helper to serve a http GET request, for a single file on a URL path.
 func (h *Handler) File(path, file string) {
+	if _, err := os.Stat(file); os.IsNotExist(err) {
+		panic(fmt.Errorf("file doesn't exist: %s", file))
+	}
 	h.Register("GET", path, func(c *Context) error {
 		return c.File(200, file)
 	})
