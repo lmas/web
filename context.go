@@ -6,6 +6,9 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -122,12 +125,57 @@ func (c *Context) Stream(status int, r io.Reader) error {
 	return err
 }
 
-// File attempts to send a file (located at path). Content-Type is autodetected and errors will be handled with a
-// 'http.Error'. See 'http.ServeFile' and 'http.ServeContent' for more info.
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Stolen from https://pkg.go.dev/net/http#example-FileServer-DotFileHiding
+func hasDotPrefix(path string) bool {
+	parts := strings.Split(path, "/")
+	for _, part := range parts {
+		if strings.HasPrefix(part, ".") {
+			return true
+		}
+	}
+	return false
+}
+
+// File attemps to send the contents of a file, located at `fp` and opened using `fs`.
+// Default behaviour:
+// * File path will be cleaned and resolved
+// * Dotfiles will be ignored (or not, optionally)
+// * Directory listnings will be ignored (or optionally serve an index file instead)
+// * Any paths ignored will serve a `NotFound()` response instead
+// * Content-Type will be autodetected (see `http.ServeContent` for more info and other extra handling)
+//
 // Warning: if http.Server timeouts are set too short, this write might time out.
-func (c *Context) File(status int, path string) error {
-	http.ServeFile(c.W, c.R, path) // doesn't return any errors, handled with http.Error response
-	return nil
+// TODO: replace http.FileSystem with io/fs.FS when go1.16 lands
+func (c *Context) File(fs http.FileSystem, fp string) error {
+	fp = filepath.Clean(fp)
+	// TODO: add option to disable this check
+	if hasDotPrefix(fp) {
+		return c.NotFound()
+	}
+
+	f, err := fs.Open(fp)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			c.H.logError(c.R, err)
+		}
+		return c.NotFound()
+	}
+	defer f.Close()
+
+	fi, err := f.Stat()
+	if err != nil {
+		c.H.logError(c.R, err)
+		return c.NotFound()
+	}
+	if fi.IsDir() {
+		// TODO: add option to try serve an index file instead
+		return c.NotFound()
+	}
+
+	http.ServeContent(c.W, c.R, fi.Name(), fi.ModTime(), f)
+	return nil // ServeContent will handle any errors with a http.Error, so we do nothing else
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

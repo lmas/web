@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"sync"
 
 	"github.com/julienschmidt/httprouter"
@@ -106,6 +107,10 @@ func (h *Handler) logRequest(r *http.Request, msg string) {
 	h.log("%s\t %s\t %s\t %s", r.RemoteAddr, r.Method, r.URL.Path, msg)
 }
 
+func (h *Handler) logError(r *http.Request, err error) {
+	h.logRequest(r, fmt.Sprintf("%+v", err))
+}
+
 // ServeHTTP implements the http.Handler interface.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.mux.ServeHTTP(w, r)
@@ -124,7 +129,7 @@ func (h *Handler) Register(method, path string, handler HandlerFunc, mw ...Middl
 		defer h.putContext(c)
 		err := wrapped(c)
 		if err != nil {
-			h.logRequest(r, fmt.Sprintf("%+v", err))
+			h.logError(r, err)
 			switch err := errors.Cause(err).(type) {
 			case *httpError:
 				http.Error(w, err.Error(), err.Status())
@@ -152,7 +157,16 @@ func (h *Handler) File(path, file string) {
 	if _, err := os.Stat(file); os.IsNotExist(err) {
 		panic(fmt.Errorf("file doesn't exist: %s", file))
 	}
+	fs := http.Dir(filepath.Dir(file))
 	h.Register("GET", path, func(c *Context) error {
-		return c.File(200, file)
+		return c.File(fs, file)
+	})
+}
+
+// Static is a helper to serve a whole directory with static files.
+func (h *Handler) Static(dir string, fs http.FileSystem) {
+	h.Register("GET", path.Join(dir, "/*filepath"), func(c *Context) error {
+		fp := httprouter.CleanPath(c.GetParams("filepath")) // Not sure if it's already cleaned but oh well...
+		return c.File(fs, fp)
 	})
 }
