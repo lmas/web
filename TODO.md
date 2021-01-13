@@ -11,13 +11,18 @@ Validators
 - https://www.ssllabs.com/ssltest/
 - https://securityheaders.com/
 - https://validator.w3.org/
+- https://validator.w3.org/nu/
 - https://html5.validator.nu/
 - https://search.google.com/test/mobile-friendly?hl=en
+- https://developers.google.com/speed/pagespeed/insights/
 - http://watson.addy.com/
 - https://gf.dev/expect-ct-test
 - https://csp-evaluator.withgoogle.com/
 - https://www.cspvalidator.org/
 - https://metatags.io/
+- https://themarkup.org/blacklight
+- https://www.webpagetest.org/
+- https://gtmetrix.com/
 
 SECURITY HEADERS
 --------------------------------------------------------------------------------
@@ -64,6 +69,12 @@ AUTH
 when running TLS, try using js web crypto (get digest of client's password)?
 - https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto
 
+use cookies and set httponly, secure, samesite attributes
+- https://caniuse.com/?search=SameSite
+
+investigate this procedure
+- https://old.reddit.com/r/programming/comments/ksfg70/steams_login_method_is_kinda_interesting/gigy3c8/
+
 TLS
 --------------------------------------------------------------------------------
 
@@ -84,6 +95,13 @@ enable tls SNI (server name indication, basicly multi host sites over tls)
 and
 - https://github.com/caddyserver/caddy/blob/e42c6bf0bb00d2e5e966ec7d9923eb21627a6b74/server/server.go#L123
 
+disable http and redirection to https? and just enforce https only
+- https://stackoverflow.com/questions/4365294/is-redirecting-http-to-https-a-bad-idea
+- https://webmasters.stackexchange.com/questions/28395/how-to-prevent-access-to-website-without-ssl-connection/28443#28443
+
+try preloading/getting on the preload list
+- https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security#preloading_strict_transport_security
+
 OPTIMIZATIONS
 --------------------------------------------------------------------------------
 
@@ -92,7 +110,12 @@ OPTIMIZATIONS
 DATABASE
 --------------------------------------------------------------------------------
 
-- check https://awesome-go.com/ for a sqlite code generator?
+create initial sql and migrations
+- https://github.com/golang-migrate/migrate
+create model structs using existing sql
+- https://github.com/xo/xo
+optimize sqlite
+- https://turriate.com/articles/making-sqlite-faster-in-go
 
 EMBEDDING
 --------------------------------------------------------------------------------
@@ -107,4 +130,8 @@ MIDDLEWARES
 - https://github.com/guardrailsio/awesome-golang-security
 - https://github.com/unrolled/secure
 - https://caddyserver.com/docs/modules/
+
+- page cache
+- rate limit
+- gzip compression
 
