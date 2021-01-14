@@ -31,9 +31,9 @@ func TestMiddleware(t *testing.T) {
 			fmt.Fprintf(ctx.W, ctx.R.Header.Get("X-MSG"))
 			return nil
 		}
-		h := testHandler(t, "", "", nil)
-		h.Register("GET", "/hello", f, mw1)
-		resp := assert.DoRequest(t, h, "GET", "/hello", nil, nil)
+		m := testMux(t, "", "", nil)
+		m.Register("GET", "/hello", f, mw1)
+		resp := assert.DoRequest(t, m, "GET", "/hello", nil, nil)
 		assert.StatusCode(t, resp, http.StatusOK)
 		assert.Body(t, resp, msg)
 	})
@@ -42,9 +42,9 @@ func TestMiddleware(t *testing.T) {
 			fmt.Fprintf(ctx.W, "%s from %s", ctx.R.Header.Get("X-MSG"), ctx.P.ByName("sender"))
 			return nil
 		}
-		h := testHandler(t, "", "", nil)
-		h.Register("GET", "/hello/:sender", f, mw1, mw2)
-		resp := assert.DoRequest(t, h, "GET", "/hello/"+sender, nil, nil)
+		m := testMux(t, "", "", nil)
+		m.Register("GET", "/hello/:sender", f, mw1, mw2)
+		resp := assert.DoRequest(t, m, "GET", "/hello/"+sender, nil, nil)
 		assert.StatusCode(t, resp, http.StatusOK)
 		assert.Body(t, resp, msg+" from "+sender)
 	})
@@ -52,9 +52,9 @@ func TestMiddleware(t *testing.T) {
 		f := func(ctx *Context) error {
 			return errors.New("test")
 		}
-		h := testHandler(t, "", "", nil)
-		h.Register("GET", "/hello/:sender", f, mw1, mw2)
-		resp := assert.DoRequest(t, h, "GET", "/hello/"+sender, nil, nil)
+		m := testMux(t, "", "", nil)
+		m.Register("GET", "/hello/:sender", f, mw1, mw2)
+		resp := assert.DoRequest(t, m, "GET", "/hello/"+sender, nil, nil)
 		assert.StatusCode(t, resp, http.StatusInternalServerError)
 		assert.Body(t, resp, "Internal Server Error\n")
 	})

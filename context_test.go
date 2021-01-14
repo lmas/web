@@ -12,11 +12,11 @@ import (
 )
 
 func TestSimpleResponses(t *testing.T) {
-	h := testHandler(t, "", "", nil)
+	m := testMux(t, "", "", nil)
 	req, _ := http.NewRequest("GET", "/", nil)
 	testContext := func(f func(*Context) error) *http.Response {
 		rec := httptest.NewRecorder()
-		ctx := h.getContext(rec, req, nil)
+		ctx := m.getContext(rec, req, nil)
 		assert.Error(t, f(ctx), nil)
 		return rec.Result()
 	}
@@ -55,7 +55,7 @@ func TestSimpleResponses(t *testing.T) {
 		assert.Body(t, resp, msg)
 	})
 	t.Run("write template", func(t *testing.T) {
-		h.opt.Templates = map[string]*template.Template{
+		m.opt.Templates = map[string]*template.Template{
 			"test": template.Must(template.New("test").Parse("hello {{.Name}}")),
 		}
 		name := "world"
@@ -80,11 +80,11 @@ func TestSimpleResponses(t *testing.T) {
 }
 
 func TestDecodeJSON(t *testing.T) {
-	h := testHandler(t, "", "", nil)
+	m := testMux(t, "", "", nil)
 	msg := "hello world"
 	req, _ := http.NewRequest("GET", "/", strings.NewReader(fmt.Sprintf("%q\n", msg)))
 	rec := httptest.NewRecorder()
-	c := h.getContext(rec, req, nil)
+	c := m.getContext(rec, req, nil)
 
 	var s string
 	if err := c.DecodeJSON(&s); err != nil {
@@ -95,16 +95,15 @@ func TestDecodeJSON(t *testing.T) {
 	}
 }
 
-////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 func BenchmarkContextError(b *testing.B) {
-	// This benchmark is pretty useless but eeeh... might aswell keep it
-	// as an example performance goal for the other benchmarks
-	// (check the output results, they're pretty much maxed...)
-	h := newBenchmarkHandler(b)
+	// This benchmark is pretty useless but eeeh... might aswell keep it as an example performance goal for the
+	// other benchmarks (check the output results, they're pretty much maxed...)
+	m := newBenchmarkMux(b)
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", "/hello", nil)
-	c := h.getContext(w, r, nil)
+	c := m.getContext(w, r, nil)
 	msg := "hello world"
 
 	b.ReportAllocs()
@@ -115,10 +114,10 @@ func BenchmarkContextError(b *testing.B) {
 }
 
 func BenchmarkContextBytes(b *testing.B) {
-	h := newBenchmarkHandler(b)
+	m := newBenchmarkMux(b)
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", "/hello", nil)
-	c := h.getContext(w, r, nil)
+	c := m.getContext(w, r, nil)
 	msg := []byte("hello world")
 
 	b.ReportAllocs()
@@ -129,10 +128,10 @@ func BenchmarkContextBytes(b *testing.B) {
 }
 
 func BenchmarkContextString(b *testing.B) {
-	h := newBenchmarkHandler(b)
+	m := newBenchmarkMux(b)
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", "/hello", nil)
-	c := h.getContext(w, r, nil)
+	c := m.getContext(w, r, nil)
 	msg := "hello world"
 
 	b.ReportAllocs()
@@ -143,13 +142,13 @@ func BenchmarkContextString(b *testing.B) {
 }
 
 func BenchmarkContextRender(b *testing.B) {
-	h := newBenchmarkHandler(b)
-	h.opt.Templates = map[string]*template.Template{
+	m := newBenchmarkMux(b)
+	m.opt.Templates = map[string]*template.Template{
 		"test": template.Must(template.New("test").Parse("hello world")),
 	}
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", "/hello", nil)
-	c := h.getContext(w, r, nil)
+	c := m.getContext(w, r, nil)
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -159,10 +158,10 @@ func BenchmarkContextRender(b *testing.B) {
 }
 
 func BenchmarkContextJSON(b *testing.B) {
-	h := newBenchmarkHandler(b)
+	m := newBenchmarkMux(b)
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", "/hello", nil)
-	c := h.getContext(w, r, nil)
+	c := m.getContext(w, r, nil)
 	msg := "hello world"
 
 	b.ReportAllocs()
