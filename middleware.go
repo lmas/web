@@ -6,12 +6,12 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-// Middleware is a function signature used when wrapping a HandlerFunc in one or many http.Handler middlewares
+// Middleware is a function signature used when wrapping a Handler in one or many http.Handler middlewares
 // that's pretty common in the go community.
 type Middleware func(http.Handler) http.Handler
 
-// wrap wraps a HandlerFunc in one or more http.Handler middlewares.
-func (m *Mux) wrapMiddleware(handler HandlerFunc, mw ...Middleware) HandlerFunc {
+// wrap wraps a Handler in one or more http.Handler middlewares.
+func (m *Mux) wrapMiddleware(handler Handler, mw ...Middleware) Handler {
 	mw = append(m.opt.Middlewares, mw...)
 	if len(mw) < 1 {
 		return handler
@@ -32,7 +32,7 @@ func (m *Mux) wrapMiddleware(handler HandlerFunc, mw ...Middleware) HandlerFunc 
 		wrapped = mw[i](wrapped)
 	}
 
-	return HandlerFunc(func(ctx *Context) error {
+	return Handler(func(ctx *Context) error {
 		params = ctx.P
 		wrapped.ServeHTTP(ctx.W, ctx.R)
 		return err

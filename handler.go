@@ -33,13 +33,13 @@ func (e *httpError) Status() int {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// HandlerFunc is a shorter convenience function signature for http handlers, instead of
+// Handler is a shorter convenience function signature for http handlers, instead of
 // func(http.ResponseWriter, *http.Request). It also allows for easier error handling.
-type HandlerFunc func(*Context) error
+type Handler func(*Context) error
 
 // RegisterFunc is a function signature used when you want to register multiple handlers under a common URL path.
-// First string is method, second string is the URL and last field is the HandlerFunc you want to register.
-type RegisterFunc func(string, string, HandlerFunc)
+// First string is method, second string is the URL and last field is the Handler you want to register.
+type RegisterFunc func(string, string, Handler)
 
 // MuxOptions contains all the optional settings for a Mux.
 type MuxOptions struct {
@@ -124,7 +124,7 @@ func (m *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // handler, by responding to the erroring request with http.Error().
 // You can optionally use one or more http.Handler middleware. First middleware in the list will be executed first, and
 // then it loops forward through all middlewares and lasty executes the request handler last.
-func (m *Mux) Register(method, url string, handler HandlerFunc, mw ...Middleware) {
+func (m *Mux) Register(method, url string, handler Handler, mw ...Middleware) {
 	wrapped := m.wrapMiddleware(handler, mw...)
 	m.mux.Handle(method, url, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		c := m.getContext(w, r, p)
@@ -147,7 +147,7 @@ func (m *Mux) Register(method, url string, handler HandlerFunc, mw ...Middleware
 // a common URL prefix.
 // You can optionally use middlewares too, the same way as in Register().
 func (m *Mux) RegisterPrefix(prefix string, mw ...Middleware) RegisterFunc {
-	return func(method, url string, handler HandlerFunc) {
+	return func(method, url string, handler Handler) {
 		m.Register(method, path.Join(prefix, url), handler, mw...)
 	}
 }
