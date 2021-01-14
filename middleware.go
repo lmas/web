@@ -6,12 +6,13 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-// MiddlewareFunc is a function signature used when wrapping a HandlerFunc in one or many http.Handler middlewares
+// Middleware is a function signature used when wrapping a HandlerFunc in one or many http.Handler middlewares
 // that's pretty common in the go community.
-type MiddlewareFunc func(http.Handler) http.Handler
+type Middleware func(http.Handler) http.Handler
 
 // wrap wraps a HandlerFunc in one or more http.Handler middlewares.
-func (h *Handler) wrapMiddleware(handler HandlerFunc, mw ...MiddlewareFunc) HandlerFunc {
+func (h *Handler) wrapMiddleware(handler HandlerFunc, mw ...Middleware) HandlerFunc {
+	mw = append(h.opt.Middlewares, mw...)
 	if len(mw) < 1 {
 		return handler
 	}

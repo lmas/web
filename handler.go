@@ -50,6 +50,8 @@ type HandlerOptions struct {
 	// NotFound is a http.Handler that will be called for '404 not found" errors. If not set it will default to
 	// http.NotFoundHandler()
 	NotFound http.Handler
+	// Middlewares is a list of middlewares that will be globaly added to all handlers
+	Middlewares []Middleware
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -122,7 +124,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // handler, by responding to the erroring request with http.Error().
 // You can optionally use one or more http.Handler middleware. First middleware in the list will be executed first, and
 // then it loops forward through all middlewares and lasty executes the request handler last.
-func (h *Handler) Register(method, path string, handler HandlerFunc, mw ...MiddlewareFunc) {
+func (h *Handler) Register(method, path string, handler HandlerFunc, mw ...Middleware) {
 	wrapped := h.wrapMiddleware(handler, mw...)
 	h.mux.Handle(method, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		c := h.getContext(w, r, p)
@@ -144,7 +146,7 @@ func (h *Handler) Register(method, path string, handler HandlerFunc, mw ...Middl
 // RegisterPrefix returns a RegisterFunc function that you can call multiple times to register multiple handlers under
 // a common URL prefix.
 // You can optionally use middlewares too, the same way as in Register().
-func (h *Handler) RegisterPrefix(prefix string, mw ...MiddlewareFunc) RegisterFunc {
+func (h *Handler) RegisterPrefix(prefix string, mw ...Middleware) RegisterFunc {
 	return func(m, p string, handler HandlerFunc) {
 		h.Register(m, path.Join(prefix, p), handler, mw...)
 	}
@@ -153,20 +155,22 @@ func (h *Handler) RegisterPrefix(prefix string, mw ...MiddlewareFunc) RegisterFu
 // File is a helper to serve a simple http GET response for a single file. If the file "disappears" while the server is
 // running, a 404 Not found will be returned.
 // NOTE: if the file doesn't exist at start up, it will cause a panic instead.
-func (h *Handler) File(path, file string) {
+// You can optionally use middlewares too, the same way as in Register().
+func (h *Handler) File(path, file string, mw ...Middleware) {
 	if _, err := os.Stat(file); os.IsNotExist(err) {
 		panic(fmt.Errorf("file doesn't exist: %s", file))
 	}
 	fs := http.Dir(filepath.Dir(file))
 	h.Register("GET", path, func(c *Context) error {
 		return c.File(fs, file)
-	})
+	}, mw...)
 }
 
 // Static is a helper to serve a whole directory with static files.
-func (h *Handler) Static(dir string, fs http.FileSystem) {
+// You can optionally use middlewares too, the same way as in Register().
+func (h *Handler) Static(dir string, fs http.FileSystem, mw ...Middleware) {
 	h.Register("GET", path.Join(dir, "/*filepath"), func(c *Context) error {
 		fp := httprouter.CleanPath(c.GetParams("filepath")) // Not sure if it's already cleaned but oh well...
 		return c.File(fs, fp)
-	})
+	}, mw...)
 }
