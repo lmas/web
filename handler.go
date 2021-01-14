@@ -41,8 +41,8 @@ type HandlerFunc func(*Context) error
 // First string is method, second string is the URL and last field is the HandlerFunc you want to register.
 type RegisterFunc func(string, string, HandlerFunc)
 
-// HandlerOptions contains all the optional settings for a Handler.
-type HandlerOptions struct {
+// MuxOptions contains all the optional settings for a Mux.
+type MuxOptions struct {
 	// Simple logger
 	Log *log.Logger
 	// Templates that can be rendered using context.Render()
@@ -56,66 +56,66 @@ type HandlerOptions struct {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Handler implements the http.Handler interface and allows you to easily register handlers and middleware with sane
+// Mux implements the http.Handler interface and allows you to easily register handlers and middleware with sane
 // defaults. It uses github.com/julienschmidt/httprouter, for quick and easy routing.
-type Handler struct {
+type Mux struct {
 	mux          *httprouter.Router
-	opt          *HandlerOptions
+	opt          *MuxOptions
 	contextPool  sync.Pool
 	templatePool sync.Pool
 }
 
-// NewHandler returns a new Handler that implements the http.Handler interface and can be run with
+// NewMux returns a new Mux that implements the http.Handler interface and can be run with
 // http.ListenAndServe(":8000", handler).
-// You can optionally proved an HandlerOptions struct with custom settings.
+// You can optionally proved an MuxOptions struct with custom settings.
 // Any panics caused by a registered handler will be caught and optionaly logged.
-func NewHandler(opt *HandlerOptions) *Handler {
+func NewMux(opt *MuxOptions) *Mux {
 	if opt == nil {
-		opt = &HandlerOptions{}
+		opt = &MuxOptions{}
 	}
 	if opt.NotFound == nil {
 		opt.NotFound = http.NotFoundHandler()
 	}
-	h := &Handler{
+	m := &Mux{
 		opt: opt,
 	}
-	h.contextPool.New = h.newContext
-	h.templatePool.New = h.newTemplateBuff
+	m.contextPool.New = m.newContext
+	m.templatePool.New = m.newTemplateBuff
 
-	h.mux = &httprouter.Router{
+	m.mux = &httprouter.Router{
 		RedirectTrailingSlash:  true,
 		RedirectFixedPath:      true,
 		HandleMethodNotAllowed: true,
 		HandleOPTIONS:          true,
 		NotFound:               opt.NotFound,
 		PanicHandler: func(w http.ResponseWriter, r *http.Request, ret interface{}) {
-			h.logRequest(r, fmt.Sprintf("%+v", ret))
+			m.logRequest(r, fmt.Sprintf("%+v", ret))
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		},
 	}
-	return h
+	return m
 }
 
-func (h *Handler) log(msg string, args ...interface{}) {
-	if h.opt.Log == nil {
+func (m *Mux) log(msg string, args ...interface{}) {
+	if m.opt.Log == nil {
 		return
 	}
 	if msg != "" {
-		h.opt.Log.Printf(msg+"\n", args...)
+		m.opt.Log.Printf(msg+"\n", args...)
 	}
 }
 
-func (h *Handler) logRequest(r *http.Request, msg string) {
-	h.log("%s\t %s\t %s\t %s", r.RemoteAddr, r.Method, r.URL.Path, msg)
+func (m *Mux) logRequest(r *http.Request, msg string) {
+	m.log("%s\t %s\t %s\t %s", r.RemoteAddr, r.Method, r.URL.Path, msg)
 }
 
-func (h *Handler) logError(r *http.Request, err error) {
-	h.logRequest(r, fmt.Sprintf("%+v", err))
+func (m *Mux) logError(r *http.Request, err error) {
+	m.logRequest(r, fmt.Sprintf("%+v", err))
 }
 
 // ServeHTTP implements the http.Handler interface.
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.mux.ServeHTTP(w, r)
+func (m *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	m.mux.ServeHTTP(w, r)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -124,14 +124,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // handler, by responding to the erroring request with http.Error().
 // You can optionally use one or more http.Handler middleware. First middleware in the list will be executed first, and
 // then it loops forward through all middlewares and lasty executes the request handler last.
-func (h *Handler) Register(method, path string, handler HandlerFunc, mw ...Middleware) {
-	wrapped := h.wrapMiddleware(handler, mw...)
-	h.mux.Handle(method, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		c := h.getContext(w, r, p)
-		defer h.putContext(c)
+func (m *Mux) Register(method, url string, handler HandlerFunc, mw ...Middleware) {
+	wrapped := m.wrapMiddleware(handler, mw...)
+	m.mux.Handle(method, url, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		c := m.getContext(w, r, p)
+		defer m.putContext(c)
 		err := wrapped(c)
 		if err != nil {
-			h.logError(r, err)
+			m.logError(r, err)
 			switch err := errors.Cause(err).(type) {
 			case *httpError:
 				http.Error(w, err.Error(), err.Status())
@@ -146,9 +146,9 @@ func (h *Handler) Register(method, path string, handler HandlerFunc, mw ...Middl
 // RegisterPrefix returns a RegisterFunc function that you can call multiple times to register multiple handlers under
 // a common URL prefix.
 // You can optionally use middlewares too, the same way as in Register().
-func (h *Handler) RegisterPrefix(prefix string, mw ...Middleware) RegisterFunc {
-	return func(m, p string, handler HandlerFunc) {
-		h.Register(m, path.Join(prefix, p), handler, mw...)
+func (m *Mux) RegisterPrefix(prefix string, mw ...Middleware) RegisterFunc {
+	return func(method, url string, handler HandlerFunc) {
+		m.Register(method, path.Join(prefix, url), handler, mw...)
 	}
 }
 
@@ -156,20 +156,20 @@ func (h *Handler) RegisterPrefix(prefix string, mw ...Middleware) RegisterFunc {
 // running, a 404 Not found will be returned.
 // NOTE: if the file doesn't exist at start up, it will cause a panic instead.
 // You can optionally use middlewares too, the same way as in Register().
-func (h *Handler) File(path, file string, mw ...Middleware) {
+func (m *Mux) File(url, file string, mw ...Middleware) {
 	if _, err := os.Stat(file); os.IsNotExist(err) {
 		panic(fmt.Errorf("file doesn't exist: %s", file))
 	}
 	fs := http.Dir(filepath.Dir(file))
-	h.Register("GET", path, func(c *Context) error {
+	m.Register("GET", url, func(c *Context) error {
 		return c.File(fs, file)
 	}, mw...)
 }
 
 // Static is a helper to serve a whole directory with static files.
 // You can optionally use middlewares too, the same way as in Register().
-func (h *Handler) Static(dir string, fs http.FileSystem, mw ...Middleware) {
-	h.Register("GET", path.Join(dir, "/*filepath"), func(c *Context) error {
+func (m *Mux) Static(dir string, fs http.FileSystem, mw ...Middleware) {
+	m.Register("GET", path.Join(dir, "/*filepath"), func(c *Context) error {
 		fp := httprouter.CleanPath(c.GetParams("filepath")) // Not sure if it's already cleaned but oh well...
 		return c.File(fs, fp)
 	}, mw...)

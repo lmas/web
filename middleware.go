@@ -11,8 +11,8 @@ import (
 type Middleware func(http.Handler) http.Handler
 
 // wrap wraps a HandlerFunc in one or more http.Handler middlewares.
-func (h *Handler) wrapMiddleware(handler HandlerFunc, mw ...Middleware) HandlerFunc {
-	mw = append(h.opt.Middlewares, mw...)
+func (m *Mux) wrapMiddleware(handler HandlerFunc, mw ...Middleware) HandlerFunc {
+	mw = append(m.opt.Middlewares, mw...)
 	if len(mw) < 1 {
 		return handler
 	}
@@ -21,9 +21,9 @@ func (h *Handler) wrapMiddleware(handler HandlerFunc, mw ...Middleware) HandlerF
 	var params httprouter.Params
 	var wrapped http.Handler
 	wrapped = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c := h.getContext(w, r, params)
+		c := m.getContext(w, r, params)
 		err = handler(c)
-		h.putContext(c)
+		m.putContext(c)
 	})
 	for i := len(mw) - 1; i >= 0; i-- {
 		if mw[i] == nil {

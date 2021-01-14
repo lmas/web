@@ -15,7 +15,7 @@ import (
 
 // Context is a convenience struct for easing the handling of a http request.
 type Context struct {
-	H *Handler
+	M *Mux
 	W http.ResponseWriter
 	R *http.Request
 	P httprouter.Params
@@ -24,25 +24,25 @@ type Context struct {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Utilize a sync.Pool to keep recently unused context objects for later reuse.
 
-func (h *Handler) newContext() interface{} {
+func (m *Mux) newContext() interface{} {
 	return &Context{
-		H: h,
+		M: m,
 	}
 }
 
-func (h *Handler) getContext(w http.ResponseWriter, r *http.Request, p httprouter.Params) *Context {
-	c := h.contextPool.Get().(*Context)
+func (m *Mux) getContext(w http.ResponseWriter, r *http.Request, p httprouter.Params) *Context {
+	c := m.contextPool.Get().(*Context)
 	c.W = w
 	c.R = r
 	c.P = p
 	return c
 }
 
-func (h *Handler) putContext(c *Context) {
+func (m *Mux) putContext(c *Context) {
 	c.W = nil
 	c.R = nil
 	c.P = nil
-	h.contextPool.Put(c)
+	m.contextPool.Put(c)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -74,7 +74,7 @@ func (c *Context) Error(status int, msg string) error {
 
 // NotFound returns the result from the '404 not found' handler set at setup.
 func (c *Context) NotFound() error {
-	c.H.mux.NotFound.ServeHTTP(c.W, c.R)
+	c.M.mux.NotFound.ServeHTTP(c.W, c.R)
 	return nil
 }
 
@@ -158,7 +158,7 @@ func (c *Context) File(fs http.FileSystem, fp string) error {
 	f, err := fs.Open(fp)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			c.H.logError(c.R, err)
+			c.M.logError(c.R, err)
 		}
 		return c.NotFound()
 	}
@@ -166,7 +166,7 @@ func (c *Context) File(fs http.FileSystem, fp string) error {
 
 	fi, err := f.Stat()
 	if err != nil {
-		c.H.logError(c.R, err)
+		c.M.logError(c.R, err)
 		return c.NotFound()
 	}
 	if fi.IsDir() {
@@ -180,17 +180,17 @@ func (c *Context) File(fs http.FileSystem, fp string) error {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func (h *Handler) newTemplateBuff() interface{} {
+func (m *Mux) newTemplateBuff() interface{} {
 	return &bytes.Buffer{}
 }
 
-func (h *Handler) getTemplateBuff() *bytes.Buffer {
-	return h.templatePool.Get().(*bytes.Buffer)
+func (m *Mux) getTemplateBuff() *bytes.Buffer {
+	return m.templatePool.Get().(*bytes.Buffer)
 }
 
-func (h *Handler) putTemplateBuff(b *bytes.Buffer) {
+func (m *Mux) putTemplateBuff(b *bytes.Buffer) {
 	b.Reset()
-	h.templatePool.Put(b)
+	m.templatePool.Put(b)
 }
 
 var (
@@ -201,7 +201,7 @@ var (
 // Render tries to render a HTML template (using tmpl as key for the Options.Template map, from the handler).
 // Optional data can be provided for the template.
 func (c *Context) Render(status int, tmpl string, data interface{}) error {
-	t, found := c.H.opt.Templates[tmpl]
+	t, found := c.M.opt.Templates[tmpl]
 	if !found {
 		// TODO: might want to show "invalid template name: the_name.html" instead
 		return ErrNoSuchTemplate
@@ -209,8 +209,8 @@ func (c *Context) Render(status int, tmpl string, data interface{}) error {
 	// If there's any errors in the template we'll catch them here using a bytes.Buffer and don't risk messing up
 	// the output to the client (by writing directly to context.W too soon). Using a pool should speed things up
 	// too (and play nicer with the GC etc. etc.).
-	buff := c.H.getTemplateBuff()
-	defer c.H.putTemplateBuff(buff)
+	buff := c.M.getTemplateBuff()
+	defer c.M.putTemplateBuff(buff)
 	if err := t.Execute(buff, data); err != nil {
 		return err
 	}
