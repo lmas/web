@@ -89,7 +89,7 @@ func NewMux(opt *MuxOptions) *Mux {
 		HandleOPTIONS:          true,
 		NotFound:               opt.NotFound,
 		PanicHandler: func(w http.ResponseWriter, r *http.Request, ret interface{}) {
-			m.logRequest(r, fmt.Sprintf("%+v", ret))
+			m.logPanic(ret)
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		},
 	}
@@ -105,12 +105,12 @@ func (m *Mux) log(msg string, args ...interface{}) {
 	}
 }
 
-func (m *Mux) logRequest(r *http.Request, msg string) {
-	m.log("%s\t %s\t %s\t %s", r.RemoteAddr, r.Method, r.URL.Path, msg)
+func (m *Mux) logError(err error) {
+	m.log("Error: %+v", err)
 }
 
-func (m *Mux) logError(r *http.Request, err error) {
-	m.logRequest(r, fmt.Sprintf("%+v", err))
+func (m *Mux) logPanic(ret interface{}) {
+	m.log("Panic: %+v", ret)
 }
 
 // ServeHTTP implements the http.Handler interface.
@@ -131,7 +131,7 @@ func (m *Mux) Register(method, url string, handler Handler, mw ...Middleware) {
 		defer m.putContext(c)
 		err := wrapped(c)
 		if err != nil {
-			m.logError(r, err)
+			m.logError(err)
 			switch err := errors.Cause(err).(type) {
 			case *httpError:
 				http.Error(w, err.Error(), err.Status())

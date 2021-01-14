@@ -158,7 +158,7 @@ func (c *Context) File(fs http.FileSystem, fp string) error {
 	f, err := fs.Open(fp)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			c.M.logError(c.R, err)
+			c.M.logError(err)
 		}
 		return c.NotFound()
 	}
@@ -166,7 +166,7 @@ func (c *Context) File(fs http.FileSystem, fp string) error {
 
 	fi, err := f.Stat()
 	if err != nil {
-		c.M.logError(c.R, err)
+		c.M.logError(err)
 		return c.NotFound()
 	}
 	if fi.IsDir() {
