@@ -69,7 +69,7 @@ func (c *Context) GetParams(key string) string {
 
 // Error returns a special http error, for which you can specify the http response status.
 func (c *Context) Error(status int, msg string) error {
-	return &httpError{status, msg}
+	return &HTTPError{status, msg}
 }
 
 // NotFound returns the result from the '404 not found' handler set at setup.

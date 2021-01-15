@@ -14,20 +14,23 @@ import (
 	"github.com/pkg/errors"
 )
 
-type httpError struct {
+// HTTPError is a custom error which also contains a http status code. Whenever a Handler returns this error, the error
+// message and status code will be sent back to the client unaltered.
+type HTTPError struct {
 	status int
 	msg    string
 }
 
-func (e *httpError) Error() string {
+func (e *HTTPError) Error() string {
 	return e.msg
 }
 
-func (e *httpError) String() string {
+func (e *HTTPError) String() string {
 	return fmt.Sprintf("Error: %q", e.msg)
 }
 
-func (e *httpError) Status() int {
+// Status returns the HTTP status code for this error.
+func (e *HTTPError) Status() int {
 	return e.status
 }
 
@@ -133,13 +136,12 @@ func (m *Mux) Register(method, url string, handler Handler, mw ...Middleware) {
 		if err != nil {
 			m.logError(err)
 			switch err := errors.Cause(err).(type) {
-			case *httpError:
+			case *HTTPError:
 				http.Error(w, err.Error(), err.Status())
 			default:
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			}
 		}
-
 	})
 }
 
