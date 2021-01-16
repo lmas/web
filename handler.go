@@ -25,10 +25,23 @@ type Middleware func(Handler) Handler
 // First string is method, second string is the URL and last field is the Handler you want to register.
 type RegisterFunc func(string, string, Handler)
 
-// NotFound is the default "404 not found" handler. It simply calls http.NotFound()
-func NotFound(c *Context) error {
+// NotFoundHandler is the default "404 not found" handler. It simply calls http.NotFound()
+func NotFoundHandler(c *Context) error {
 	http.NotFound(c.W, c.R)
 	return nil
+}
+
+// ErrorHandler is the default error handler. The error is never nil.
+// It will log the error and call http.Error(). Defaults to "500 internal server error", but if it's an HTTPError it
+// will send a custom status code and error message (from HTTPError).
+func ErrorHandler(c *Context, e error) {
+	c.M.logError(e)
+	switch err := errors.Cause(e).(type) {
+	case *HTTPError:
+		http.Error(c.W, err.Error(), err.Status())
+	default:
+		http.Error(c.W, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
 }
 
 // MuxOptions contains all the optional settings for a Mux.
@@ -37,9 +50,12 @@ type MuxOptions struct {
 	Log *log.Logger
 	// Templates that can be rendered using context.Render()
 	Templates map[string]*template.Template
-	// NotFound is a Handler that will be called for '404 not found" errors. If not set it will default to the
-	// NotFound() handler.
-	NotFound Handler
+	// NotFoundHandler is a Handler that will be called for '404 not found" errors. If not set it will default to
+	// the NotFound() handler.
+	NotFoundHandler Handler
+	// ErrorHandler is a special handler that will be called for all errors returned from a Handler (except for
+	// "404 not found"). It defaults to ErrorHandler().
+	ErrorHandler func(*Context, error)
 	// Middlewares is a list of middlewares that will be globaly added to all handlers
 	Middlewares []Middleware
 }
@@ -83,8 +99,11 @@ func NewMux(opt *MuxOptions) *Mux {
 	if opt == nil {
 		opt = &MuxOptions{}
 	}
-	if opt.NotFound == nil {
-		opt.NotFound = NotFound
+	if opt.NotFoundHandler == nil {
+		opt.NotFoundHandler = NotFoundHandler
+	}
+	if opt.ErrorHandler == nil {
+		opt.ErrorHandler = ErrorHandler
 	}
 	m := &Mux{
 		opt: opt,
@@ -102,11 +121,12 @@ func NewMux(opt *MuxOptions) *Mux {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		},
 	}
-	opt.NotFound = m.wrap(opt.NotFound)
+
+	opt.NotFoundHandler = m.wrap(opt.NotFoundHandler)
 	m.mux.NotFound = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c := &Context{m, w, r, nil}
-		if err := opt.NotFound(c); err != nil {
-			m.handlerError(c, err)
+		if err := opt.NotFoundHandler(c); err != nil {
+			opt.ErrorHandler(c, err)
 		}
 	})
 	return m
@@ -150,16 +170,6 @@ func (m *Mux) wrap(h Handler, mw ...Middleware) Handler {
 	return h
 }
 
-func (m *Mux) handlerError(c *Context, e error) {
-	m.logError(e)
-	switch err := errors.Cause(e).(type) {
-	case *HTTPError:
-		http.Error(c.W, err.Error(), err.Status())
-	default:
-		http.Error(c.W, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-	}
-}
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Register registers a new handler for a certain http method and URL. It will also handle any errors returned from the
@@ -172,7 +182,7 @@ func (m *Mux) Register(method, url string, handler Handler, mw ...Middleware) {
 		c := m.getContext(w, r, p)
 		defer m.putContext(c)
 		if err := wrapped(c); err != nil {
-			m.handlerError(c, err)
+			m.opt.ErrorHandler(c, err)
 		}
 	})
 }

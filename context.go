@@ -75,7 +75,7 @@ func (c *Context) Error(status int, msg string) error {
 
 // NotFound returns the result from the '404 not found' handler set at setup.
 func (c *Context) NotFound() error {
-	return c.M.opt.NotFound(c)
+	return c.M.opt.NotFoundHandler(c)
 }
 
 // Empty let's you send a response code with empty body.
