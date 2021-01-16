@@ -100,6 +100,7 @@ func TestDecodeJSON(t *testing.T) {
 	m := testMux(t, "", "", nil)
 	msg := "hello world"
 	req, _ := http.NewRequest("GET", "/", strings.NewReader(fmt.Sprintf("%q\n", msg)))
+	req.Header.Add("Content-Type", "application/json; charset=utf-8")
 	rec := httptest.NewRecorder()
 	c := m.getContext(rec, req, nil)
 

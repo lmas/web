@@ -234,6 +234,9 @@ func (c *Context) JSON(status int, data interface{}) error {
 
 // DecodeJSON is a helper for JSON decoding a request body.
 func (c *Context) DecodeJSON(data interface{}) error {
+	if !strings.Contains(c.GetHeader("Content-Type"), "application/json") {
+		return c.Error(http.StatusBadRequest, "invalid content type")
+	}
 	defer c.R.Body.Close()
 	return json.NewDecoder(c.R.Body).Decode(data)
 }
