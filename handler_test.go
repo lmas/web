@@ -139,7 +139,7 @@ func newBenchmarkMux(b *testing.B) *Mux {
 func BenchmarkMux(b *testing.B) {
 	m := newBenchmarkMux(b)
 	m.Register("GET", "/hello", func(c *Context) error {
-		return c.String(200, "hello world")
+		return nil
 	})
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", "/hello", nil)

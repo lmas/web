@@ -77,6 +77,23 @@ func TestSimpleResponses(t *testing.T) {
 		assert.Header(t, resp, "Content-Type", "application/json; charset=utf-8")
 		assert.Body(t, resp, fmt.Sprintf("%q\n", msg))
 	})
+	t.Run("write not found", func(t *testing.T) {
+		resp := testContext(func(c *Context) error {
+			return c.NotFound()
+		})
+		assert.StatusCode(t, resp, http.StatusNotFound)
+		assert.Header(t, resp, "Content-Type", "text/plain; charset=utf-8")
+		assert.Body(t, resp, "404 page not found\n")
+	})
+
+	t.Run("get params", func(t *testing.T) {
+		resp := testContext(func(c *Context) error {
+			_ = c.GetParams("test")
+			return nil
+		})
+		assert.StatusCode(t, resp, http.StatusOK)
+		assert.BodyEmpty(t, resp)
+	})
 }
 
 func TestDecodeJSON(t *testing.T) {

@@ -61,6 +61,7 @@ func (c *Context) GetHeader(key string) string {
 
 // GetParams is a shortcut to get URL params, first one given by key.
 // See https://pkg.go.dev/github.com/julienschmidt/httprouter#Param for more info.
+// It's safe to call when *Context.P == nil
 func (c *Context) GetParams(key string) string {
 	return c.P.ByName(key)
 }
@@ -74,8 +75,7 @@ func (c *Context) Error(status int, msg string) error {
 
 // NotFound returns the result from the '404 not found' handler set at setup.
 func (c *Context) NotFound() error {
-	c.M.mux.NotFound.ServeHTTP(c.W, c.R)
-	return nil
+	return c.M.opt.NotFound(c)
 }
 
 // Empty let's you send a response code with empty body.
