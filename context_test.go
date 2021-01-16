@@ -16,8 +16,8 @@ func TestSimpleResponses(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/", nil)
 	testContext := func(f func(*Context) error) *http.Response {
 		rec := httptest.NewRecorder()
-		ctx := m.getContext(rec, req, nil)
-		assert.Error(t, f(ctx), nil)
+		c := m.getContext(rec, req, nil)
+		assert.Error(t, f(c), nil)
 		return rec.Result()
 	}
 

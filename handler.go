@@ -14,6 +14,39 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Handler is a shorter convenience function signature for http handlers, instead of
+// func(http.ResponseWriter, *http.Request). It also allows for easier error handling.
+type Handler func(*Context) error
+
+// Middleware is a function signature used when wrapping a Handler in one or many Handler middlewares.
+type Middleware func(Handler) Handler
+
+// RegisterFunc is a function signature used when you want to register multiple handlers under a common URL path.
+// First string is method, second string is the URL and last field is the Handler you want to register.
+type RegisterFunc func(string, string, Handler)
+
+// MuxOptions contains all the optional settings for a Mux.
+type MuxOptions struct {
+	// Simple logger
+	Log *log.Logger
+	// Templates that can be rendered using context.Render()
+	Templates map[string]*template.Template
+	// NotFound is a http.Handler that will be called for '404 not found" errors. If not set it will default to
+	// http.NotFoundHandler()
+	NotFound http.Handler
+	// Middlewares is a list of middlewares that will be globaly added to all handlers
+	Middlewares []Middleware
+}
+
+// Mux implements the http.Handler interface and allows you to easily register handlers and middleware with sane
+// defaults. It uses github.com/julienschmidt/httprouter, for quick and easy routing.
+type Mux struct {
+	mux          *httprouter.Router
+	opt          *MuxOptions
+	contextPool  sync.Pool
+	templatePool sync.Pool
+}
+
 // HTTPError is a custom error which also contains a http status code. Whenever a Handler returns this error, the error
 // message and status code will be sent back to the client unaltered.
 type HTTPError struct {
@@ -35,38 +68,6 @@ func (e *HTTPError) Status() int {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Handler is a shorter convenience function signature for http handlers, instead of
-// func(http.ResponseWriter, *http.Request). It also allows for easier error handling.
-type Handler func(*Context) error
-
-// RegisterFunc is a function signature used when you want to register multiple handlers under a common URL path.
-// First string is method, second string is the URL and last field is the Handler you want to register.
-type RegisterFunc func(string, string, Handler)
-
-// MuxOptions contains all the optional settings for a Mux.
-type MuxOptions struct {
-	// Simple logger
-	Log *log.Logger
-	// Templates that can be rendered using context.Render()
-	Templates map[string]*template.Template
-	// NotFound is a http.Handler that will be called for '404 not found" errors. If not set it will default to
-	// http.NotFoundHandler()
-	NotFound http.Handler
-	// Middlewares is a list of middlewares that will be globaly added to all handlers
-	Middlewares []Middleware
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Mux implements the http.Handler interface and allows you to easily register handlers and middleware with sane
-// defaults. It uses github.com/julienschmidt/httprouter, for quick and easy routing.
-type Mux struct {
-	mux          *httprouter.Router
-	opt          *MuxOptions
-	contextPool  sync.Pool
-	templatePool sync.Pool
-}
 
 // NewMux returns a new Mux that implements the http.Handler interface and can be run with
 // http.ListenAndServe(":8000", handler).
@@ -121,6 +122,22 @@ func (m *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	m.mux.ServeHTTP(w, r)
 }
 
+// wrap wraps a Handler in one or more Middlewares.
+func (m *Mux) wrap(h Handler, mw ...Middleware) Handler {
+	mw = append(m.opt.Middlewares, mw...)
+	if len(mw) < 1 {
+		return h
+	}
+
+	for i := len(mw) - 1; i >= 0; i-- {
+		if mw[i] == nil {
+			panic("Trying to use a nil pointer as middleware")
+		}
+		h = mw[i](h)
+	}
+	return h
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Register registers a new handler for a certain http method and URL. It will also handle any errors returned from the
@@ -128,12 +145,11 @@ func (m *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // You can optionally use one or more http.Handler middleware. First middleware in the list will be executed first, and
 // then it loops forward through all middlewares and lasty executes the request handler last.
 func (m *Mux) Register(method, url string, handler Handler, mw ...Middleware) {
-	wrapped := m.wrapMiddleware(handler, mw...)
+	wrapped := m.wrap(handler, mw...)
 	m.mux.Handle(method, url, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		c := m.getContext(w, r, p)
 		defer m.putContext(c)
-		err := wrapped(c)
-		if err != nil {
+		if err := wrapped(c); err != nil {
 			m.logError(err)
 			switch err := errors.Cause(err).(type) {
 			case *HTTPError:

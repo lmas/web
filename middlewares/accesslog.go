@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/lmas/web"
 )
 
 // recorder wraps ResponseWriter so we can get the response status code
@@ -49,26 +51,29 @@ func (w *recorder) Bytes() string {
 // Response run time
 // HTTP Referer
 // Client User-Agent
-func AccessLog(l *log.Logger) func(http.Handler) http.Handler {
+func AccessLog(l *log.Logger) func(web.Handler) web.Handler {
 	if l == nil {
 		// There's no point trying to run this middleware without providing a logger, hence the hard panic
 		panic("accesslog: missing *log.Logger")
 	}
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w2 := &recorder{w, http.StatusOK, 0}
+	return func(next web.Handler) web.Handler {
+		return web.Handler(func(c *web.Context) error {
+			c.W = &recorder{c.W, http.StatusOK, 0}
 			start := time.Now()
-			next.ServeHTTP(w2, r)
+			err := next(c)
 			dur := time.Since(start)
+
 			// It's more efficient (speed, memory allocs) to concat a string like this..
-			l.Println(r.Host +
-				" " + r.RemoteAddr +
-				" \"" + r.Method + " " + r.URL.Path + " " + r.Proto + "\"" +
-				" " + w2.Status() +
-				" " + w2.Bytes() + "kb" +
+			l.Println(c.R.Host +
+				" " + c.R.RemoteAddr +
+				" \"" + c.R.Method + " " + c.R.URL.Path + " " + c.R.Proto + "\"" +
+				" " + c.W.(*recorder).Status() +
+				" " + c.W.(*recorder).Bytes() + "kb" +
 				" " + dur.String() +
-				" \"" + r.Referer() + "\"" +
-				" \"" + r.UserAgent() + "\"")
+				" \"" + c.R.Referer() + "\"" +
+				" \"" + c.R.UserAgent() + "\"")
+			c.W = c.W.(*recorder).ResponseWriter
+			return err
 		})
 	}
 }

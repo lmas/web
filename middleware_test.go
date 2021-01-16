@@ -3,6 +3,7 @@ package web
 import (
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/lmas/web/internal/assert"
@@ -11,25 +12,24 @@ import (
 
 func TestMiddleware(t *testing.T) {
 	msg, sender := "hello", "world"
-	mw1 := func(h http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			r.Header.Set("X-MSG", msg)
-			h.ServeHTTP(w, r)
+	mw1 := func(next Handler) Handler {
+		return Handler(func(c *Context) error {
+			c.R.Header.Set("X-MSG", msg)
+			return next(c)
 		})
 	}
-	mw2 := func(h http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Header.Get("X-MSG") != msg {
+	mw2 := func(next Handler) Handler {
+		return Handler(func(c *Context) error {
+			if c.GetHeader("X-MSG") != msg {
 				panic("didn't find header")
 			}
-			h.ServeHTTP(w, r)
+			return next(c)
 		})
 	}
 
 	t.Run("register single middleware", func(t *testing.T) {
-		f := func(ctx *Context) error {
-			fmt.Fprintf(ctx.W, ctx.R.Header.Get("X-MSG"))
-			return nil
+		f := func(c *Context) error {
+			return c.String(200, c.R.Header.Get("X-MSG"))
 		}
 		m := testMux(t, "", "", nil)
 		m.Register("GET", "/hello", f, mw1)
@@ -38,9 +38,8 @@ func TestMiddleware(t *testing.T) {
 		assert.Body(t, resp, msg)
 	})
 	t.Run("register many middleware", func(t *testing.T) {
-		f := func(ctx *Context) error {
-			fmt.Fprintf(ctx.W, "%s from %s", ctx.R.Header.Get("X-MSG"), ctx.P.ByName("sender"))
-			return nil
+		f := func(c *Context) error {
+			return c.String(200, fmt.Sprintf("%s from %s", c.R.Header.Get("X-MSG"), c.P.ByName("sender")))
 		}
 		m := testMux(t, "", "", nil)
 		m.Register("GET", "/hello/:sender", f, mw1, mw2)
@@ -49,7 +48,7 @@ func TestMiddleware(t *testing.T) {
 		assert.Body(t, resp, msg+" from "+sender)
 	})
 	t.Run("error in handler", func(t *testing.T) {
-		f := func(ctx *Context) error {
+		f := func(c *Context) error {
 			return errors.New("test")
 		}
 		m := testMux(t, "", "", nil)
@@ -58,4 +57,26 @@ func TestMiddleware(t *testing.T) {
 		assert.StatusCode(t, resp, http.StatusInternalServerError)
 		assert.Body(t, resp, "Internal Server Error\n")
 	})
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func BenchmarkMiddleware(b *testing.B) {
+	m := newBenchmarkMux(b)
+	mw1 := func(next Handler) Handler {
+		return Handler(func(c *Context) error {
+			return next(c)
+		})
+	}
+	m.Register("GET", "/hello", func(c *Context) error {
+		return nil
+	}, mw1)
+	w := httptest.NewRecorder()
+	r, _ := http.NewRequest("GET", "/hello", nil)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.ServeHTTP(w, r)
+	}
 }

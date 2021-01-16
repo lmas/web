@@ -4,6 +4,8 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"net/http"
+
+	"github.com/lmas/web"
 )
 
 // HTTP Basic Auth
@@ -33,27 +35,22 @@ func singleBasicAuth(defaultUser, defaultPass string) checkFunc {
 	}
 }
 
-func requestBasicAuth(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
-	http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-}
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // BasicAuth is a middleware that checks requests for the HTTP Basic Auth header and securely validates it against the
 // given user/password pair.
-func BasicAuth(username, password string) func(http.Handler) http.Handler {
+func BasicAuth(username, password string) func(web.Handler) web.Handler {
 	isValid := singleBasicAuth(username, password)
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			user, pass, ok := r.BasicAuth()
+	return func(next web.Handler) web.Handler {
+		return web.Handler(func(c *web.Context) error {
+			user, pass, ok := c.R.BasicAuth()
 			if !ok || !isValid(user, pass) {
-				requestBasicAuth(w, r)
-				return
+				c.SetHeader("WWW-Authenticate", `Basic realm="Restricted"`)
+				return c.Error(http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized))
 			}
 
 			// 's all good ya'll
-			next.ServeHTTP(w, r)
+			return next(c)
 		})
 	}
 }

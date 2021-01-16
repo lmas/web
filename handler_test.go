@@ -31,24 +31,23 @@ func TestSimple(t *testing.T) {
 		assert.StatusCode(t, resp, http.StatusNotFound)
 	})
 	t.Run("simple get", func(t *testing.T) {
-		m := testMux(t, "GET", "/hello", func(ctx *Context) error {
-			fmt.Fprintf(ctx.W, "hello world")
-			return nil
+		m := testMux(t, "GET", "/hello", func(c *Context) error {
+			return c.String(200, "hello world")
 		})
 		resp := assert.DoRequest(t, m, "GET", "/hello", nil, nil)
 		assert.StatusCode(t, resp, http.StatusOK)
 		assert.Body(t, resp, "hello world")
 	})
 	t.Run("get http error", func(t *testing.T) {
-		m := testMux(t, "GET", "/hello", func(ctx *Context) error {
-			return ctx.Error(http.StatusNotImplemented, "test")
+		m := testMux(t, "GET", "/hello", func(c *Context) error {
+			return c.Error(http.StatusNotImplemented, "test")
 		})
 		resp := assert.DoRequest(t, m, "GET", "/hello", nil, nil)
 		assert.StatusCode(t, resp, http.StatusNotImplemented)
 		assert.Body(t, resp, "test\n")
 	})
 	t.Run("get unknown error", func(t *testing.T) {
-		m := testMux(t, "GET", "/hello", func(ctx *Context) error {
+		m := testMux(t, "GET", "/hello", func(c *Context) error {
 			return errors.New("test")
 		})
 		resp := assert.DoRequest(t, m, "GET", "/hello", nil, nil)
@@ -57,7 +56,7 @@ func TestSimple(t *testing.T) {
 	})
 	t.Run("panic in a handler", func(t *testing.T) {
 		msg := "test"
-		m := testMux(t, "GET", "/hello", func(ctx *Context) error {
+		m := testMux(t, "GET", "/hello", func(c *Context) error {
 			panic(msg)
 		})
 		m.mux.PanicHandler = func(w http.ResponseWriter, r *http.Request, ret interface{}) {
@@ -78,14 +77,13 @@ func TestRegisterPrefix(t *testing.T) {
 		m := testMux(t, "", "", nil)
 		f := m.RegisterPrefix("/api")
 		hello := func(msg string) func(*Context) error {
-			return func(ctx *Context) error {
-				fmt.Fprintf(ctx.W, msg)
-				return nil
+			return func(c *Context) error {
+				return c.String(200, msg)
 			}
 		}
 		f("GET", "/hello", hello("hello world"))
 		f("GET", "/hello2", hello("hello world2"))
-		f("GET", "/error", func(ctx *Context) error {
+		f("GET", "/error", func(c *Context) error {
 			return errors.New("test")
 		})
 
@@ -103,18 +101,16 @@ func TestRegisterPrefix(t *testing.T) {
 	})
 	t.Run("register prefix with middleware", func(t *testing.T) {
 		m := testMux(t, "", "", nil)
-		mw := func(h http.Handler) http.Handler {
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				r.Header.Set("X-MSG", "hello")
-				h.ServeHTTP(w, r)
+		mw := func(next Handler) Handler {
+			return Handler(func(c *Context) error {
+				c.R.Header.Set("X-MSG", "hello")
+				return next(c)
 			})
 		}
 		f := m.RegisterPrefix("/api", mw)
 		hello := func(user string) func(*Context) error {
-			return func(ctx *Context) error {
-				msg := ctx.R.Header.Get("X-MSG")
-				fmt.Fprintf(ctx.W, "%s %s", msg, user)
-				return nil
+			return func(c *Context) error {
+				return c.String(200, fmt.Sprintf("%s %s", c.R.Header.Get("X-MSG"), user))
 			}
 		}
 		f("GET", "/hello", hello("world"))
@@ -142,9 +138,8 @@ func newBenchmarkMux(b *testing.B) *Mux {
 
 func BenchmarkMux(b *testing.B) {
 	m := newBenchmarkMux(b)
-	m.Register("GET", "/hello", func(ctx *Context) error {
-		fmt.Fprint(ctx.W, "hello world")
-		return nil
+	m.Register("GET", "/hello", func(c *Context) error {
+		return c.String(200, "hello world")
 	})
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", "/hello", nil)

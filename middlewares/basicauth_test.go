@@ -2,10 +2,10 @@ package middlewares
 
 import (
 	"encoding/base64"
-	"fmt"
 	"net/http"
 	"testing"
 
+	"github.com/lmas/web"
 	"github.com/lmas/web/internal/assert"
 )
 
@@ -19,19 +19,19 @@ func TestBasicAuth(t *testing.T) {
 	headers := http.Header{
 		"Authorization": []string{"Basic " + basicAuth(user, pass)},
 	}
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "ok")
+	handler := web.Handler(func(c *web.Context) error {
+		return c.String(200, "ok")
 	})
 	basic := BasicAuth(user, pass)
 	wrapped := basic(handler)
 
 	t.Run("simple valid login", func(t *testing.T) {
-		resp := assert.DoRequest(t, wrapped, "GET", "/hello", headers, nil)
+		resp := doRequest(t, wrapped, "GET", "/", headers, nil)
 		assert.StatusCode(t, resp, http.StatusOK)
 		assert.Body(t, resp, "ok")
 	})
 	t.Run("missing auth header", func(t *testing.T) {
-		resp := assert.DoRequest(t, wrapped, "GET", "/hello", nil, nil)
+		resp := doRequest(t, wrapped, "GET", "/", nil, nil)
 		assert.StatusCode(t, resp, http.StatusUnauthorized)
 		assert.Header(t, resp, "WWW-Authenticate", `Basic realm="Restricted"`)
 	})
@@ -39,7 +39,7 @@ func TestBasicAuth(t *testing.T) {
 		badHeaders := http.Header{
 			"Authorization": []string{"Basic " + basicAuth("wrong", "wrong")},
 		}
-		resp := assert.DoRequest(t, wrapped, "GET", "/hello", badHeaders, nil)
+		resp := doRequest(t, wrapped, "GET", "/", badHeaders, nil)
 		assert.StatusCode(t, resp, http.StatusUnauthorized)
 		assert.Header(t, resp, "WWW-Authenticate", `Basic realm="Restricted"`)
 	})
