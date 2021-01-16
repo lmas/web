@@ -127,7 +127,7 @@ func BenchmarkContextError(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		c.Error(200, msg)
+		c.ErrorClient(200, msg)
 	}
 }
 

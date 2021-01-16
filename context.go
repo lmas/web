@@ -67,9 +67,14 @@ func (c *Context) GetParams(key string) string {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Error returns a ErrorClient to the client, with http response "status" and "msg" body.
-func (c *Context) Error(status int, msg string) error {
+// ErrorClient returns a ErrorClient to the client, with http response "status" and "msg" body.
+func (c *Context) ErrorClient(status int, msg string) error {
 	return NewErrorClient(status, msg)
+}
+
+// ErrorServer returns a ErrorClient to the client, with http response "status" and "msg" body.
+func (c *Context) ErrorServer(msg string) error {
+	return NewErrorServer(msg)
 }
 
 // NotFound returns the result from the '404 not found' handler set at setup.
@@ -86,7 +91,7 @@ func (c *Context) Empty(status int) error {
 // Redirect sends a redirection response. It also makes sure the response code is within range.
 func (c *Context) Redirect(status int, url string) error {
 	if status < 300 || status > 308 {
-		return c.Error(http.StatusBadRequest, "invalid redirect code")
+		return c.ErrorClient(http.StatusBadRequest, "invalid redirect code")
 	}
 	c.SetHeader("Location", url)
 	c.W.WriteHeader(status)
@@ -195,7 +200,7 @@ func (c *Context) Render(status int, tmpl string, data interface{}) error {
 	t, found := c.M.opt.Templates[tmpl]
 	if !found {
 		// TODO: might want to show "invalid template name: the_name.html" instead
-		return NewErrorServer("invalid template name: " + tmpl)
+		return c.ErrorServer("invalid template name: " + tmpl)
 	}
 	// If there's any errors in the template we'll catch them here using a bytes.Buffer and don't risk messing up
 	// the output to the client (by writing directly to context.W too soon). Using a pool should speed things up
@@ -226,7 +231,7 @@ func (c *Context) JSON(status int, data interface{}) error {
 // DecodeJSON is a helper for JSON decoding a request body.
 func (c *Context) DecodeJSON(data interface{}) error {
 	if !strings.Contains(c.GetHeader("Content-Type"), "application/json") {
-		return c.Error(http.StatusBadRequest, "invalid content type")
+		return c.ErrorClient(http.StatusBadRequest, "invalid content type")
 	}
 	defer c.R.Body.Close()
 	return json.NewDecoder(c.R.Body).Decode(data)

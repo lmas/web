@@ -39,7 +39,7 @@ func TestSimple(t *testing.T) {
 	})
 	t.Run("get http error", func(t *testing.T) {
 		m := testMux(t, "GET", "/hello", func(c *Context) error {
-			return c.Error(http.StatusNotImplemented, "test")
+			return c.ErrorClient(http.StatusNotImplemented, "test")
 		})
 		resp := assert.DoRequest(t, m, "GET", "/hello", nil, nil)
 		assert.StatusCode(t, resp, http.StatusNotImplemented)
