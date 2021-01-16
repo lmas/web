@@ -72,7 +72,7 @@ func (c *Context) ErrorClient(status int, msg string) error {
 	return NewErrorClient(status, msg)
 }
 
-// ErrorServer returns a ErrorClient to the client, with http response "status" and "msg" body.
+// ErrorServer returns a ErrorServer to the client, with a "500 internal server error".
 func (c *Context) ErrorServer(msg string) error {
 	return NewErrorServer(msg)
 }
