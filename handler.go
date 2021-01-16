@@ -37,10 +37,10 @@ func NotFoundHandler(c *Context) error {
 func ErrorHandler(c *Context, e error) {
 	switch err := errors.Cause(e).(type) {
 	case *ErrorHTTP:
-		c.M.logError("HTTP", err)
+		c.M.logError("HTTP", err, err.stack)
 		http.Error(c.W, err.Error(), err.Status())
 	case *ErrorPanic:
-		c.M.logError("Panic", err)
+		c.M.logError("Panic", err, err.stack)
 		http.Error(c.W, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	default:
 		c.M.logError("Unknown", err)
@@ -51,7 +51,7 @@ func ErrorHandler(c *Context, e error) {
 // PanicHandler is the default handler called whenever a panic was recovered inside a handler. It simply calls
 // HandleError() with a ErrorPanic.
 func PanicHandler(c *Context, ret interface{}) {
-	c.M.opt.HandleError(c, &ErrorPanic{ret})
+	c.M.opt.HandleError(c, &ErrorPanic{newStack(6), ret})
 }
 
 // MuxOptions contains all the optional settings for a Mux.
@@ -80,40 +80,6 @@ type Mux struct {
 	opt          *MuxOptions
 	contextPool  sync.Pool
 	templatePool sync.Pool
-}
-
-// ErrorPanic is a custom error that contains the error value passed to a panic(). Whenever a panic is raised in a
-// Handler, the panic will be recovered using HandlePanic.
-type ErrorPanic struct {
-	panic interface{}
-}
-
-func (e *ErrorPanic) Error() string {
-	return fmt.Sprintf("%+v", e.panic)
-}
-
-func (e *ErrorPanic) String() string {
-	return fmt.Sprintf("Panic: %+v", e.panic)
-}
-
-// ErrorHTTP is a custom error which also contains a http status code. Whenever a Handler returns this error, the error
-// message and status code will be sent back to the client unaltered.
-type ErrorHTTP struct {
-	status int
-	msg    string
-}
-
-func (e *ErrorHTTP) Error() string {
-	return e.msg
-}
-
-func (e *ErrorHTTP) String() string {
-	return fmt.Sprintf("Error: %q", e.msg)
-}
-
-// Status returns the HTTP status code for this error.
-func (e *ErrorHTTP) Status() int {
-	return e.status
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -171,8 +137,11 @@ func (m *Mux) log(msg string, args ...interface{}) {
 	}
 }
 
-func (m *Mux) logError(prefix string, err error) {
+func (m *Mux) logError(prefix string, err error, extra ...interface{}) {
 	m.log("%s error: %+v", prefix, err)
+	for _, e := range extra {
+		m.log("%v", e)
+	}
 }
 
 // wrap a Handler in one or more Middlewares.
