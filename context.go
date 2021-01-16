@@ -233,6 +233,10 @@ func (c *Context) DecodeJSON(data interface{}) error {
 	if !strings.Contains(c.GetHeader("Content-Type"), "application/json") {
 		return c.ErrorClient(http.StatusBadRequest, "invalid content type")
 	}
+	if c.R.Method != "POST" && c.R.Method != "PUT" && c.R.Method != "PATCH" {
+		return c.ErrorClient(http.StatusBadRequest, "invalid method")
+	}
+
 	defer c.R.Body.Close()
 	return json.NewDecoder(c.R.Body).Decode(data)
 }
