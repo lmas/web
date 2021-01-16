@@ -18,10 +18,12 @@ func doRequest(t *testing.T, handler web.Handler, method, path string, headers h
 		req.Header = headers
 	}
 	c := &web.Context{nil, rec, req, nil}
-	if err := handler(c); err != nil {
-		switch err := errors.Cause(err).(type) {
-		case *web.HTTPError:
+	if e := handler(c); e != nil {
+		switch err := errors.Cause(e).(type) {
+		case *web.ErrorHTTP:
 			http.Error(rec, err.Error(), err.Status())
+		case *web.ErrorPanic:
+			http.Error(rec, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		default:
 			http.Error(rec, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		}

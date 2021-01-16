@@ -32,16 +32,26 @@ func NotFoundHandler(c *Context) error {
 }
 
 // ErrorHandler is the default error handler. The error is never nil.
-// It will log the error and call http.Error(). Defaults to "500 internal server error", but if it's an HTTPError it
-// will send a custom status code and error message (from HTTPError).
+// It will log the error and call http.Error(). Defaults to "500 internal server error", but if it's an ErrorHTTP it
+// will send a custom status code and error message (from ErrorHTTP).
 func ErrorHandler(c *Context, e error) {
-	c.M.logError(e)
 	switch err := errors.Cause(e).(type) {
-	case *HTTPError:
+	case *ErrorHTTP:
+		c.M.logError("HTTP", err)
 		http.Error(c.W, err.Error(), err.Status())
+	case *ErrorPanic:
+		c.M.logError("Panic", err)
+		http.Error(c.W, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	default:
+		c.M.logError("Unknown", err)
 		http.Error(c.W, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
+}
+
+// PanicHandler is the default handler called whenever a panic was recovered inside a handler. It simply calls
+// HandleError() with a ErrorPanic.
+func PanicHandler(c *Context, ret interface{}) {
+	c.M.opt.HandleError(c, &ErrorPanic{ret})
 }
 
 // MuxOptions contains all the optional settings for a Mux.
@@ -50,12 +60,15 @@ type MuxOptions struct {
 	Log *log.Logger
 	// Templates that can be rendered using context.Render()
 	Templates map[string]*template.Template
-	// NotFoundHandler is a Handler that will be called for '404 not found" errors. If not set it will default to
-	// the NotFound() handler.
-	NotFoundHandler Handler
-	// ErrorHandler is a special handler that will be called for all errors returned from a Handler (except for
+	// HandleNotFound is a Handler that will be called for '404 not found" errors. If not set it will default to
+	// the NotFoundHandler() handler.
+	HandleNotFound Handler
+	// HandleError is a special handler that will be called for all errors returned from a Handler (except for
 	// "404 not found"). It defaults to ErrorHandler().
-	ErrorHandler func(*Context, error)
+	HandleError func(*Context, error)
+	// HandlePanic is a special handler that will be called whenever a panic has been raised and recovered.
+	// It defaults to PanicHandler().
+	HandlePanic func(*Context, interface{})
 	// Middlewares is a list of middlewares that will be globaly added to all handlers
 	Middlewares []Middleware
 }
@@ -69,23 +82,37 @@ type Mux struct {
 	templatePool sync.Pool
 }
 
-// HTTPError is a custom error which also contains a http status code. Whenever a Handler returns this error, the error
+// ErrorPanic is a custom error that contains the error value passed to a panic(). Whenever a panic is raised in a
+// Handler, the panic will be recovered using HandlePanic.
+type ErrorPanic struct {
+	panic interface{}
+}
+
+func (e *ErrorPanic) Error() string {
+	return fmt.Sprintf("%+v", e.panic)
+}
+
+func (e *ErrorPanic) String() string {
+	return fmt.Sprintf("Panic: %+v", e.panic)
+}
+
+// ErrorHTTP is a custom error which also contains a http status code. Whenever a Handler returns this error, the error
 // message and status code will be sent back to the client unaltered.
-type HTTPError struct {
+type ErrorHTTP struct {
 	status int
 	msg    string
 }
 
-func (e *HTTPError) Error() string {
+func (e *ErrorHTTP) Error() string {
 	return e.msg
 }
 
-func (e *HTTPError) String() string {
+func (e *ErrorHTTP) String() string {
 	return fmt.Sprintf("Error: %q", e.msg)
 }
 
 // Status returns the HTTP status code for this error.
-func (e *HTTPError) Status() int {
+func (e *ErrorHTTP) Status() int {
 	return e.status
 }
 
@@ -99,16 +126,19 @@ func NewMux(opt *MuxOptions) *Mux {
 	if opt == nil {
 		opt = &MuxOptions{}
 	}
-	if opt.NotFoundHandler == nil {
-		opt.NotFoundHandler = NotFoundHandler
+	if opt.HandleNotFound == nil {
+		opt.HandleNotFound = NotFoundHandler
 	}
-	if opt.ErrorHandler == nil {
-		opt.ErrorHandler = ErrorHandler
+	if opt.HandleError == nil {
+		opt.HandleError = ErrorHandler
 	}
+	if opt.HandlePanic == nil {
+		opt.HandlePanic = PanicHandler
+	}
+
 	m := &Mux{
 		opt: opt,
 	}
-
 	m.contextPool.New = m.newContext
 	m.templatePool.New = m.newTemplateBuff
 	m.mux = &httprouter.Router{
@@ -116,19 +146,19 @@ func NewMux(opt *MuxOptions) *Mux {
 		RedirectFixedPath:      true,
 		HandleMethodNotAllowed: true,
 		HandleOPTIONS:          true,
-		PanicHandler: func(w http.ResponseWriter, r *http.Request, ret interface{}) {
-			m.logPanic(ret)
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		},
 	}
 
-	opt.NotFoundHandler = m.wrap(opt.NotFoundHandler)
+	opt.HandleNotFound = m.wrap(opt.HandleNotFound)
 	m.mux.NotFound = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c := &Context{m, w, r, nil}
-		if err := opt.NotFoundHandler(c); err != nil {
-			opt.ErrorHandler(c, err)
+		if err := opt.HandleNotFound(c); err != nil {
+			opt.HandleError(c, err)
 		}
 	})
+	m.mux.PanicHandler = func(w http.ResponseWriter, r *http.Request, ret interface{}) {
+		c := &Context{m, w, r, nil}
+		opt.HandlePanic(c, ret)
+	}
 	return m
 }
 
@@ -141,20 +171,11 @@ func (m *Mux) log(msg string, args ...interface{}) {
 	}
 }
 
-func (m *Mux) logError(err error) {
-	m.log("Error: %+v", err)
+func (m *Mux) logError(prefix string, err error) {
+	m.log("%s error: %+v", prefix, err)
 }
 
-func (m *Mux) logPanic(ret interface{}) {
-	m.log("Panic: %+v", ret)
-}
-
-// ServeHTTP implements the http.Handler interface.
-func (m *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	m.mux.ServeHTTP(w, r)
-}
-
-// wrap wraps a Handler in one or more Middlewares.
+// wrap a Handler in one or more Middlewares.
 func (m *Mux) wrap(h Handler, mw ...Middleware) Handler {
 	mw = append(m.opt.Middlewares, mw...)
 	if len(mw) < 1 {
@@ -172,6 +193,11 @@ func (m *Mux) wrap(h Handler, mw ...Middleware) Handler {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// ServeHTTP implements the http.Handler interface.
+func (m *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	m.mux.ServeHTTP(w, r)
+}
+
 // Register registers a new handler for a certain http method and URL. It will also handle any errors returned from the
 // handler, by responding to the erroring request with http.Error().
 // You can optionally use one or more http.Handler middleware. First middleware in the list will be executed first, and
@@ -182,7 +208,7 @@ func (m *Mux) Register(method, url string, handler Handler, mw ...Middleware) {
 		c := m.getContext(w, r, p)
 		defer m.putContext(c)
 		if err := wrapped(c); err != nil {
-			m.opt.ErrorHandler(c, err)
+			m.opt.HandleError(c, err)
 		}
 	})
 }

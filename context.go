@@ -70,12 +70,12 @@ func (c *Context) GetParams(key string) string {
 
 // Error returns a special http error, for which you can specify the http response status.
 func (c *Context) Error(status int, msg string) error {
-	return &HTTPError{status, msg}
+	return &ErrorHTTP{status, msg}
 }
 
 // NotFound returns the result from the '404 not found' handler set at setup.
 func (c *Context) NotFound() error {
-	return c.M.opt.NotFoundHandler(c)
+	return c.M.opt.HandleNotFound(c)
 }
 
 // Empty let's you send a response code with empty body.
@@ -158,7 +158,7 @@ func (c *Context) File(fs http.FileSystem, fp string) error {
 	f, err := fs.Open(fp)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			c.M.logError(err)
+			c.M.logError("File", err)
 		}
 		return c.NotFound()
 	}
@@ -166,7 +166,7 @@ func (c *Context) File(fs http.FileSystem, fp string) error {
 
 	fi, err := f.Stat()
 	if err != nil {
-		c.M.logError(err)
+		c.M.logError("File", err)
 		return c.NotFound()
 	}
 	if fi.IsDir() {
