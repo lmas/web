@@ -42,7 +42,7 @@ func TestSimpleResponses(t *testing.T) {
 			return c.String(200, msg)
 		})
 		assert.StatusCode(t, resp, http.StatusOK)
-		assert.Header(t, resp, "Content-Type", "text/plain; charset=UTF-8")
+		assert.Header(t, resp, "Content-Type", "text/plain; charset=utf-8")
 		assert.Body(t, resp, msg)
 	})
 	t.Run("write html", func(t *testing.T) {
@@ -51,7 +51,7 @@ func TestSimpleResponses(t *testing.T) {
 			return c.HTML(200, msg)
 		})
 		assert.StatusCode(t, resp, http.StatusOK)
-		assert.Header(t, resp, "Content-Type", "text/html; charset=UTF-8")
+		assert.Header(t, resp, "Content-Type", "text/html; charset=utf-8")
 		assert.Body(t, resp, msg)
 	})
 	t.Run("write template", func(t *testing.T) {
@@ -65,7 +65,7 @@ func TestSimpleResponses(t *testing.T) {
 			})
 		})
 		assert.StatusCode(t, resp, http.StatusOK)
-		assert.Header(t, resp, "Content-Type", "text/html; charset=UTF-8")
+		assert.Header(t, resp, "Content-Type", "text/html; charset=utf-8")
 		assert.Body(t, resp, "hello world")
 	})
 	t.Run("write json", func(t *testing.T) {

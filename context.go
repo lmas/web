@@ -106,13 +106,13 @@ func (c *Context) Bytes(status int, data []byte) error {
 
 // String is a helper to send a simple string body, with a 'text/plain' Content-Type header.
 func (c *Context) String(status int, data string) error {
-	c.SetHeader("Content-Type", "text/plain; charset=UTF-8")
+	c.SetHeader("Content-Type", "text/plain; charset=utf-8")
 	return c.Bytes(status, []byte(data))
 }
 
 // HTML is a helper to send a simple HTML body, with a 'text/html' Content-Type header.
 func (c *Context) HTML(status int, data string) error {
-	c.SetHeader("Content-Type", "text/html; charset=UTF-8")
+	c.SetHeader("Content-Type", "text/html; charset=utf-8")
 	return c.Bytes(status, []byte(data))
 }
 
@@ -215,7 +215,7 @@ func (c *Context) Render(status int, tmpl string, data interface{}) error {
 		return err
 	}
 
-	c.SetHeader("Content-Type", "text/html; charset=UTF-8")
+	c.SetHeader("Content-Type", "text/html; charset=utf-8")
 	c.W.WriteHeader(status)
 	_, err := buff.WriteTo(c.W)
 	return err

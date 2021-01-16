@@ -75,6 +75,9 @@ use cookies and set httponly, secure, samesite attributes
 investigate this procedure
 - https://old.reddit.com/r/programming/comments/ksfg70/steams_login_method_is_kinda_interesting/gigy3c8/
 
+keep tokens in a cache
+- https://github.com/zgoat/zcache
+
 TLS
 --------------------------------------------------------------------------------
 
@@ -134,4 +137,5 @@ MIDDLEWARES
 - page cache
 - rate limit
 - gzip compression
+- ip filter? https://github.com/letsencrypt/boulder/blob/b58e5453e8039804eb241e13d5ff5dd744d2c7e4/bdns/dns.go#L31-L145
 
