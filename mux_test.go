@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/lmas/web/internal/assert"
-	"github.com/pkg/errors"
 )
 
 func testMux(t *testing.T, method, path string, f func(*Context) error) *Mux {
@@ -48,7 +47,7 @@ func TestSimple(t *testing.T) {
 	})
 	t.Run("get unknown error", func(t *testing.T) {
 		m := testMux(t, "GET", "/hello", func(c *Context) error {
-			return errors.New("test")
+			return fmt.Errorf("err")
 		})
 		resp := assert.DoRequest(t, m, "GET", "/hello", nil, nil)
 		assert.StatusCode(t, resp, http.StatusInternalServerError)
@@ -84,7 +83,7 @@ func TestRegisterPrefix(t *testing.T) {
 		f("GET", "/hello", hello("hello world"))
 		f("GET", "/hello2", hello("hello world2"))
 		f("GET", "/error", func(c *Context) error {
-			return errors.New("test")
+			return fmt.Errorf("err")
 		})
 
 		resp := assert.DoRequest(t, m, "GET", "/api/hello", nil, nil)

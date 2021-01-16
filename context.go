@@ -3,7 +3,6 @@ package web
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -68,9 +67,9 @@ func (c *Context) GetParams(key string) string {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Error returns a special http error, for which you can specify the http response status.
+// Error returns a ErrorClient to the client, with http response "status" and "msg" body.
 func (c *Context) Error(status int, msg string) error {
-	return &ErrorHTTP{newStack(3), status, msg}
+	return NewErrorClient(status, msg)
 }
 
 // NotFound returns the result from the '404 not found' handler set at setup.
@@ -84,13 +83,10 @@ func (c *Context) Empty(status int) error {
 	return nil
 }
 
-// ErrInvalidRedirectCode is returned from Redirect() when the redirection code is out of range (300 to 308).
-var ErrInvalidRedirectCode = errors.New("invalid redirect code")
-
 // Redirect sends a redirection response. It also makes sure the response code is within range.
 func (c *Context) Redirect(status int, url string) error {
 	if status < 300 || status > 308 {
-		return ErrInvalidRedirectCode
+		return c.Error(http.StatusBadRequest, "invalid redirect code")
 	}
 	c.SetHeader("Location", url)
 	c.W.WriteHeader(status)
@@ -193,18 +189,13 @@ func (m *Mux) putTemplateBuff(b *bytes.Buffer) {
 	m.templatePool.Put(b)
 }
 
-var (
-	// ErrNoSuchTemplate is returned from Render() when trying to render a missing/invalid template.
-	ErrNoSuchTemplate = errors.New("invalid template name")
-)
-
 // Render tries to render a HTML template (using tmpl as key for the Options.Template map, from the handler).
 // Optional data can be provided for the template.
 func (c *Context) Render(status int, tmpl string, data interface{}) error {
 	t, found := c.M.opt.Templates[tmpl]
 	if !found {
 		// TODO: might want to show "invalid template name: the_name.html" instead
-		return ErrNoSuchTemplate
+		return NewErrorServer("invalid template name: " + tmpl)
 	}
 	// If there's any errors in the template we'll catch them here using a bytes.Buffer and don't risk messing up
 	// the output to the client (by writing directly to context.W too soon). Using a pool should speed things up

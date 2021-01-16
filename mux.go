@@ -1,7 +1,6 @@
 package web
 
 import (
-	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -167,7 +166,7 @@ func (m *Mux) RegisterPrefix(prefix string, mw ...Middleware) RegisterFunc {
 // You can optionally use middlewares too, the same way as in Register().
 func (m *Mux) File(url, file string, mw ...Middleware) {
 	if _, err := os.Stat(file); os.IsNotExist(err) {
-		panic(fmt.Errorf("file doesn't exist: %s", file))
+		panic("file doesn't exist: " + file)
 	}
 	fs := http.Dir(filepath.Dir(file))
 	m.Register("GET", url, func(c *Context) error {

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/lmas/web/internal/assert"
-	"github.com/pkg/errors"
 )
 
 func TestMiddleware(t *testing.T) {
@@ -49,7 +48,7 @@ func TestMiddleware(t *testing.T) {
 	})
 	t.Run("error in handler", func(t *testing.T) {
 		f := func(c *Context) error {
-			return errors.New("test")
+			return fmt.Errorf("err")
 		}
 		m := testMux(t, "", "", nil)
 		m.Register("GET", "/hello/:sender", f, mw1, mw2)

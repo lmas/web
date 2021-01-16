@@ -20,8 +20,10 @@ func doRequest(t *testing.T, handler web.Handler, method, path string, headers h
 	c := &web.Context{nil, rec, req, nil}
 	if e := handler(c); e != nil {
 		switch err := errors.Cause(e).(type) {
-		case *web.ErrorHTTP:
+		case *web.ErrorClient:
 			http.Error(rec, err.Error(), err.Status())
+		case *web.ErrorServer:
+			http.Error(rec, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		case *web.ErrorPanic:
 			http.Error(rec, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		default:
