@@ -46,9 +46,8 @@ func BasicAuth(username, password string) func(web.Handler) web.Handler {
 			user, pass, ok := c.R.BasicAuth()
 			if !ok || !isValid(user, pass) {
 				c.SetHeader("WWW-Authenticate", `Basic realm="Restricted"`)
-				return c.ErrorClient(http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized))
+				return c.Error(http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized))
 			}
-
 			// 's all good ya'll
 			return next(c)
 		})

@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/lmas/web"
 	"github.com/lmas/web/internal/assert"
 )
 
@@ -19,11 +18,8 @@ func TestBasicAuth(t *testing.T) {
 	headers := http.Header{
 		"Authorization": []string{"Basic " + basicAuth(user, pass)},
 	}
-	handler := web.Handler(func(c *web.Context) error {
-		return c.String(200, "ok")
-	})
 	basic := BasicAuth(user, pass)
-	wrapped := basic(handler)
+	wrapped := basic(basicHandler)
 
 	t.Run("simple valid login", func(t *testing.T) {
 		resp := doRequest(t, wrapped, "GET", "/", headers, nil)

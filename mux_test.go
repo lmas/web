@@ -15,8 +15,13 @@ func testMux(t *testing.T, method, path string, f func(*Context) error) *Mux {
 	if f != nil {
 		m.Register(method, path, f)
 	}
-	m.mux.PanicHandler = func(w http.ResponseWriter, r *http.Request, ret interface{}) {
-		t.Fatalf("Panic: %+v", ret)
+	return m
+}
+
+func newBenchmarkMux(b *testing.B, method, path string, f func(*Context) error) *Mux {
+	m := NewMux(nil)
+	if f != nil {
+		m.Register(method, path, f)
 	}
 	return m
 }
@@ -39,7 +44,7 @@ func TestSimple(t *testing.T) {
 	})
 	t.Run("get http error", func(t *testing.T) {
 		m := testMux(t, "GET", "/hello", func(c *Context) error {
-			return c.ErrorClient(http.StatusNotImplemented, "test")
+			return c.Error(http.StatusNotImplemented, "test")
 		})
 		resp := assert.DoRequest(t, m, "GET", "/hello", nil, nil)
 		assert.StatusCode(t, resp, http.StatusNotImplemented)
@@ -51,23 +56,16 @@ func TestSimple(t *testing.T) {
 		})
 		resp := assert.DoRequest(t, m, "GET", "/hello", nil, nil)
 		assert.StatusCode(t, resp, http.StatusInternalServerError)
-		assert.Body(t, resp, "Internal Server Error\n")
+		assert.Body(t, resp, http.StatusText(http.StatusInternalServerError)+"\n")
 	})
 	t.Run("panic in a handler", func(t *testing.T) {
 		msg := "test"
 		m := testMux(t, "GET", "/hello", func(c *Context) error {
 			panic(msg)
 		})
-		m.mux.PanicHandler = func(w http.ResponseWriter, r *http.Request, ret interface{}) {
-			s, ok := ret.(string)
-			if !ok {
-				t.Errorf("got panic value %q, expected %q", ret, msg)
-			}
-			http.Error(w, s, http.StatusInternalServerError)
-		}
 		resp := assert.DoRequest(t, m, "GET", "/hello", nil, nil)
 		assert.StatusCode(t, resp, http.StatusInternalServerError)
-		assert.Body(t, resp, msg+"\n")
+		assert.Body(t, resp, http.StatusText(http.StatusInternalServerError)+"\n")
 	})
 }
 
@@ -96,7 +94,7 @@ func TestRegisterPrefix(t *testing.T) {
 
 		resp = assert.DoRequest(t, m, "GET", "/api/error", nil, nil)
 		assert.StatusCode(t, resp, http.StatusInternalServerError)
-		assert.Body(t, resp, "Internal Server Error\n")
+		assert.Body(t, resp, http.StatusText(http.StatusInternalServerError)+"\n")
 	})
 	t.Run("register prefix with middleware", func(t *testing.T) {
 		m := testMux(t, "", "", nil)
@@ -127,17 +125,8 @@ func TestRegisterPrefix(t *testing.T) {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func newBenchmarkMux(b *testing.B) *Mux {
-	m := NewMux(nil)
-	m.mux.PanicHandler = func(w http.ResponseWriter, r *http.Request, ret interface{}) {
-		b.Fatalf("Panic: %+v", ret)
-	}
-	return m
-}
-
 func BenchmarkMux(b *testing.B) {
-	m := newBenchmarkMux(b)
-	m.Register("GET", "/hello", func(c *Context) error {
+	m := newBenchmarkMux(b, "GET", "/hello", func(c *Context) error {
 		return nil
 	})
 	w := httptest.NewRecorder()

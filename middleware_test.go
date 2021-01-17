@@ -61,12 +61,12 @@ func TestMiddleware(t *testing.T) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 func BenchmarkMiddleware(b *testing.B) {
-	m := newBenchmarkMux(b)
 	mw1 := func(next Handler) Handler {
 		return Handler(func(c *Context) error {
 			return next(c)
 		})
 	}
+	m := newBenchmarkMux(b, "", "", nil)
 	m.Register("GET", "/hello", func(c *Context) error {
 		return nil
 	}, mw1)

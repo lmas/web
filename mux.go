@@ -12,13 +12,6 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-// Handler is a shorter convenience function signature for http handlers, instead of
-// func(http.ResponseWriter, *http.Request). It also allows for easier error handling.
-type Handler func(*Context) error
-
-// Middleware is a function signature used when wrapping a Handler in one or many Handler middlewares.
-type Middleware func(Handler) Handler
-
 // RegisterFunc is a function signature used when you want to register multiple handlers under a common URL path.
 // First string is method, second string is the URL and last field is the Handler you want to register.
 type RegisterFunc func(string, string, Handler)
@@ -30,14 +23,11 @@ type MuxOptions struct {
 	// Templates that can be rendered using context.Render()
 	Templates map[string]*template.Template
 	// HandleNotFound is a Handler that will be called for '404 not found" errors. If not set it will default to
-	// the NotFoundHandler() handler.
+	// the SimpleNotFoundHandler() handler.
 	HandleNotFound Handler
-	// HandleError is a special handler that will be called for all errors returned from a Handler (except for
-	// "404 not found"). It defaults to ErrorHandler().
-	HandleError func(*Context, error)
-	// HandlePanic is a special handler that will be called whenever a panic has been raised and recovered.
-	// It defaults to PanicHandler().
-	HandlePanic func(*Context, interface{})
+	// HandleError is a ErrorHandler that will be called for all errors returned from a Handler (except for
+	// "404 not found"). It defaults to SimpleErrorHandler().
+	HandleError ErrorHandler
 	// Middlewares is a list of middlewares that will be globaly added to all handlers
 	Middlewares []Middleware
 }
@@ -62,13 +52,10 @@ func NewMux(opt *MuxOptions) *Mux {
 		opt = &MuxOptions{}
 	}
 	if opt.HandleNotFound == nil {
-		opt.HandleNotFound = NotFoundHandler
+		opt.HandleNotFound = SimpleNotFoundHandler
 	}
 	if opt.HandleError == nil {
-		opt.HandleError = ErrorHandler
-	}
-	if opt.HandlePanic == nil {
-		opt.HandlePanic = PanicHandler
+		opt.HandleError = SimpleErrorHandler
 	}
 
 	m := &Mux{
@@ -85,15 +72,8 @@ func NewMux(opt *MuxOptions) *Mux {
 
 	opt.HandleNotFound = m.wrap(opt.HandleNotFound)
 	m.mux.NotFound = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c := &Context{m, w, r, nil}
-		if err := opt.HandleNotFound(c); err != nil {
-			opt.HandleError(c, err)
-		}
+		m.run(opt.HandleNotFound, w, r, nil)
 	})
-	m.mux.PanicHandler = func(w http.ResponseWriter, r *http.Request, ret interface{}) {
-		c := &Context{m, w, r, nil}
-		opt.HandlePanic(c, ret)
-	}
 	return m
 }
 
@@ -106,27 +86,13 @@ func (m *Mux) log(msg string, args ...interface{}) {
 	}
 }
 
-func (m *Mux) logError(prefix string, err error, extra ...interface{}) {
-	m.log("%s error: %+v", prefix, err)
-	for _, e := range extra {
-		m.log("%v", e)
+func (m *Mux) run(h Handler, w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	c := m.getContext(w, r, p)
+	err := h(c)
+	m.putContext(c)
+	if err != nil {
+		m.log("Error: %+v", err)
 	}
-}
-
-// wrap a Handler in one or more Middlewares.
-func (m *Mux) wrap(h Handler, mw ...Middleware) Handler {
-	mw = append(m.opt.Middlewares, mw...)
-	if len(mw) < 1 {
-		return h
-	}
-
-	for i := len(mw) - 1; i >= 0; i-- {
-		if mw[i] == nil {
-			panic("Trying to use a nil pointer as middleware")
-		}
-		h = mw[i](h)
-	}
-	return h
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -143,11 +109,7 @@ func (m *Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (m *Mux) Register(method, url string, handler Handler, mw ...Middleware) {
 	wrapped := m.wrap(handler, mw...)
 	m.mux.Handle(method, url, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		c := m.getContext(w, r, p)
-		defer m.putContext(c)
-		if err := wrapped(c); err != nil {
-			m.opt.HandleError(c, err)
-		}
+		m.run(wrapped, w, r, p)
 	})
 }
 

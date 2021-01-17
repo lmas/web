@@ -10,11 +10,29 @@ import (
 	"strings"
 
 	"github.com/julienschmidt/httprouter"
+	"github.com/pkg/errors"
 )
+
+// Error is a custom error which also contains a http status code. Whenever a Handler returns this error, the error
+// message and status code will be sent back to the client unaltered.
+type Error struct {
+	status int
+	msg    string
+}
+
+func (e *Error) Error() string {
+	return e.msg
+}
+
+// Status returns the HTTP status code for this error.
+func (e *Error) Status() int {
+	return e.status
+}
 
 // Context is a convenience struct for easing the handling of a http request.
 type Context struct {
 	M *Mux
+
 	W http.ResponseWriter
 	R *http.Request
 	P httprouter.Params
@@ -44,6 +62,11 @@ func (m *Mux) putContext(c *Context) {
 	m.contextPool.Put(c)
 }
 
+// Log logs a message and args, if a logger is available.
+func (c *Context) Log(msg string, args ...interface{}) {
+	c.M.log(msg, args...)
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // SetHeader is a shortcut to set a header value for a response.
@@ -67,14 +90,9 @@ func (c *Context) GetParams(key string) string {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// ErrorClient returns a ErrorClient to the client, with http response "status" and "msg" body.
-func (c *Context) ErrorClient(status int, msg string) error {
-	return NewErrorClient(status, msg)
-}
-
-// ErrorServer returns a ErrorServer to the client, with a "500 internal server error".
-func (c *Context) ErrorServer(msg string) error {
-	return NewErrorServer(msg)
+// Error returns an *Error to the client, with http response "status" and "msg" body.
+func (c *Context) Error(status int, msg string) error {
+	return &Error{status, msg}
 }
 
 // NotFound returns the result from the '404 not found' handler set at setup.
@@ -91,7 +109,7 @@ func (c *Context) Empty(status int) error {
 // Redirect sends a redirection response. It also makes sure the response code is within range.
 func (c *Context) Redirect(status int, url string) error {
 	if status < 300 || status > 308 {
-		return c.ErrorClient(http.StatusBadRequest, "invalid redirect code")
+		return c.Error(http.StatusBadRequest, "invalid redirect code")
 	}
 	c.SetHeader("Location", url)
 	c.W.WriteHeader(status)
@@ -159,7 +177,7 @@ func (c *Context) File(fs http.FileSystem, fp string) error {
 	f, err := fs.Open(fp)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			c.M.logError("File", err)
+			c.Log("Error: %s", err)
 		}
 		return c.NotFound()
 	}
@@ -167,7 +185,7 @@ func (c *Context) File(fs http.FileSystem, fp string) error {
 
 	fi, err := f.Stat()
 	if err != nil {
-		c.M.logError("File", err)
+		c.Log("Error: %s", err)
 		return c.NotFound()
 	}
 	if fi.IsDir() {
@@ -194,13 +212,16 @@ func (m *Mux) putTemplateBuff(b *bytes.Buffer) {
 	m.templatePool.Put(b)
 }
 
+// ErrInvalidTemplate is returned when you try to render a template with an unknown name.
+var ErrInvalidTemplate = errors.New("invalid template")
+
 // Render tries to render a HTML template (using tmpl as key for the Options.Template map, from the handler).
 // Optional data can be provided for the template.
 func (c *Context) Render(status int, tmpl string, data interface{}) error {
 	t, found := c.M.opt.Templates[tmpl]
 	if !found {
 		// TODO: might want to show "invalid template name: the_name.html" instead
-		return c.ErrorServer("invalid template name: " + tmpl)
+		return ErrInvalidTemplate
 	}
 	// If there's any errors in the template we'll catch them here using a bytes.Buffer and don't risk messing up
 	// the output to the client (by writing directly to context.W too soon). Using a pool should speed things up
@@ -231,10 +252,10 @@ func (c *Context) JSON(status int, data interface{}) error {
 // DecodeJSON is a helper for JSON decoding a request body.
 func (c *Context) DecodeJSON(data interface{}) error {
 	if !strings.Contains(c.GetHeader("Content-Type"), "application/json") {
-		return c.ErrorClient(http.StatusBadRequest, "invalid content type")
+		return c.Error(http.StatusBadRequest, "invalid content type")
 	}
 	if c.R.Method != "POST" && c.R.Method != "PUT" && c.R.Method != "PATCH" {
-		return c.ErrorClient(http.StatusBadRequest, "invalid method")
+		return c.Error(http.StatusBadRequest, "invalid method")
 	}
 
 	defer c.R.Body.Close()

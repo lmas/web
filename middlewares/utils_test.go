@@ -7,8 +7,15 @@ import (
 	"testing"
 
 	"github.com/lmas/web"
-	"github.com/pkg/errors"
 )
+
+var basicHandler = web.Handler(func(c *web.Context) error {
+	return c.String(200, "ok")
+})
+
+var benchHandler = web.Handler(func(c *web.Context) error {
+	return c.Empty(200) // Do nothing else
+})
 
 func doRequest(t *testing.T, handler web.Handler, method, path string, headers http.Header, body io.Reader) *http.Response {
 	t.Helper()
@@ -18,17 +25,8 @@ func doRequest(t *testing.T, handler web.Handler, method, path string, headers h
 		req.Header = headers
 	}
 	c := &web.Context{nil, rec, req, nil}
-	if e := handler(c); e != nil {
-		switch err := errors.Cause(e).(type) {
-		case *web.ErrorClient:
-			http.Error(rec, err.Error(), err.Status())
-		case *web.ErrorServer:
-			http.Error(rec, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		case *web.ErrorPanic:
-			http.Error(rec, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		default:
-			http.Error(rec, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		}
+	if err := handler(c); err != nil {
+		_ = web.SimpleErrorHandler(c, err)
 	}
 	return rec.Result()
 }

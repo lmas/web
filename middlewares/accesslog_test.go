@@ -12,12 +12,9 @@ import (
 )
 
 func TestAccessLog(t *testing.T) {
-	h := web.Handler(func(c *web.Context) error {
-		return c.String(200, "ok")
-	})
 	var buf bytes.Buffer
 	mw := AccessLog(log.New(&buf, "", 0))
-	wrapped := mw(h)
+	wrapped := mw(basicHandler)
 
 	resp := doRequest(t, wrapped, "GET", "/", nil, nil)
 	assert.StatusCode(t, resp, http.StatusOK)
@@ -27,12 +24,9 @@ func TestAccessLog(t *testing.T) {
 }
 
 func BenchmarkAccessLog(b *testing.B) {
-	h := web.Handler(func(c *web.Context) error {
-		return c.Empty(200) // Do nothing else
-	})
 	var buf bytes.Buffer
 	mw := AccessLog(log.New(&buf, "", 0))
-	wrapped := mw(h)
+	wrapped := mw(benchHandler)
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", "/", nil)
 	c := &web.Context{nil, w, r, nil}

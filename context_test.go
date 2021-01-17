@@ -118,7 +118,7 @@ func TestDecodeJSON(t *testing.T) {
 func BenchmarkContextError(b *testing.B) {
 	// This benchmark is pretty useless but eeeh... might aswell keep it as an example performance goal for the
 	// other benchmarks (check the output results, they're pretty much maxed...)
-	m := newBenchmarkMux(b)
+	m := newBenchmarkMux(b, "", "", nil)
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", "/hello", nil)
 	c := m.getContext(w, r, nil)
@@ -127,12 +127,12 @@ func BenchmarkContextError(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		c.ErrorClient(200, msg)
+		c.Error(200, msg)
 	}
 }
 
 func BenchmarkContextBytes(b *testing.B) {
-	m := newBenchmarkMux(b)
+	m := newBenchmarkMux(b, "", "", nil)
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", "/hello", nil)
 	c := m.getContext(w, r, nil)
@@ -146,7 +146,7 @@ func BenchmarkContextBytes(b *testing.B) {
 }
 
 func BenchmarkContextString(b *testing.B) {
-	m := newBenchmarkMux(b)
+	m := newBenchmarkMux(b, "", "", nil)
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", "/hello", nil)
 	c := m.getContext(w, r, nil)
@@ -160,7 +160,7 @@ func BenchmarkContextString(b *testing.B) {
 }
 
 func BenchmarkContextRender(b *testing.B) {
-	m := newBenchmarkMux(b)
+	m := newBenchmarkMux(b, "", "", nil)
 	m.opt.Templates = map[string]*template.Template{
 		"test": template.Must(template.New("test").Parse("hello world")),
 	}
@@ -176,7 +176,7 @@ func BenchmarkContextRender(b *testing.B) {
 }
 
 func BenchmarkContextJSON(b *testing.B) {
-	m := newBenchmarkMux(b)
+	m := newBenchmarkMux(b, "", "", nil)
 	w := httptest.NewRecorder()
 	r, _ := http.NewRequest("GET", "/hello", nil)
 	c := m.getContext(w, r, nil)

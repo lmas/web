@@ -6,34 +6,29 @@ import (
 	"github.com/pkg/errors"
 )
 
-// NotFoundHandler is the default "404 not found" handler. It simply calls http.NotFound()
-func NotFoundHandler(c *Context) error {
+// Handler is a shorter convenience function signature for http handlers, instead of
+// func(http.ResponseWriter, *http.Request). It also allows for easier error handling.
+type Handler func(*Context) error
+
+// ErrorHandler is a sort of a Handler, but it also takes an error.
+type ErrorHandler func(*Context, error) error
+
+// SimpleNotFoundHandler is the default "404 not found" handler. It simply calls http.NotFound()
+func SimpleNotFoundHandler(c *Context) error {
 	http.NotFound(c.W, c.R)
 	return nil
 }
 
-// ErrorHandler is the default error handler. The error is never nil.
-// It will log the error and call http.Error(). Defaults to "500 internal server error", but if it's an ErrorClient it
-// will send a custom status code and error message (from ErrorClient).
-func ErrorHandler(c *Context, e error) {
-	switch err := errors.Cause(e).(type) {
-	case *ErrorClient:
-		c.M.logError("Client", err, err.Stack())
-		http.Error(c.W, err.Error(), err.Status())
-	case *ErrorServer:
-		c.M.logError("Server", err, err.Stack())
-		http.Error(c.W, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-	case *ErrorPanic:
-		c.M.logError("Panic", err, err.Stack())
-		http.Error(c.W, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+// SimpleErrorHandler is the default handler for handling handler errors (that sounded sick).
+// It checks if an error is a Error and sends it's status code and msg as the http response. If it's not, it simply
+// sends an "500 internal server error" for all other errors.
+func SimpleErrorHandler(c *Context, err error) error {
+	switch e := errors.Cause(err).(type) {
+	case *Error:
+		http.Error(c.W, e.Error(), e.Status())
+		return nil // Don't wanna log client errors
 	default:
-		c.M.logError("Unknown", err)
 		http.Error(c.W, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return err
 	}
-}
-
-// PanicHandler is the default handler called whenever a panic was recovered inside a handler. It simply calls
-// HandleError() with a ErrorPanic.
-func PanicHandler(c *Context, ret interface{}) {
-	c.M.opt.HandleError(c, NewErrorPanic(ret))
 }
