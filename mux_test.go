@@ -42,7 +42,7 @@ func TestSimple(t *testing.T) {
 		assert.StatusCode(t, resp, http.StatusOK)
 		assert.Body(t, resp, "hello world")
 	})
-	t.Run("get http error", func(t *testing.T) {
+	t.Run("get Error error", func(t *testing.T) {
 		m := testMux(t, "GET", "/hello", func(c *Context) error {
 			return c.Error(http.StatusNotImplemented, "test")
 		})

@@ -1,11 +1,7 @@
 
-TODO
-================================================================================
-
 Big list of temporary notes, to be removed/documented as work continues...
 
-SECURITY 
---------------------------------------------------------------------------------
+# SECURITY 
 
 Validators
 - https://www.ssllabs.com/ssltest/
@@ -24,8 +20,7 @@ Validators
 - https://www.webpagetest.org/
 - https://gtmetrix.com/
 
-SECURITY HEADERS
---------------------------------------------------------------------------------
+# SECURITY HEADERS
 
 example
         X-Frame-Options "deny"
@@ -59,8 +54,7 @@ experimentals?
 - https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cross-Origin-Resource-Policy
 - https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cross-Origin-Embedder-Policy
 
-AUTH
---------------------------------------------------------------------------------
+# AUTH
 
 - https://latacora.micro.blog/2019/07/24/how-not-to.html
 - https://latacora.micro.blog/2018/04/03/cryptographic-right-answers.html
@@ -78,8 +72,7 @@ investigate this procedure
 keep tokens in a cache
 - https://github.com/zgoat/zcache
 
-TLS
---------------------------------------------------------------------------------
+# TLS
 
 - https://github.com/ssllabs/research/wiki/SSL-and-TLS-Deployment-Best-Practices
 
@@ -105,13 +98,11 @@ disable http and redirection to https? and just enforce https only
 try preloading/getting on the preload list
 - https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security#preloading_strict_transport_security
 
-OPTIMIZATIONS
---------------------------------------------------------------------------------
+# OPTIMIZATIONS
 
 - https://methane.github.io/2015/02/reduce-allocation-in-go-code/
 
-DATABASE
---------------------------------------------------------------------------------
+# DATABASE
 
 create initial sql and migrations
 - https://github.com/golang-migrate/migrate
@@ -120,13 +111,11 @@ create model structs using existing sql
 optimize sqlite
 - https://turriate.com/articles/making-sqlite-faster-in-go
 
-EMBEDDING
---------------------------------------------------------------------------------
+# EMBEDDING
 
 - https://tip.golang.org/pkg/embed/
 
-MIDDLEWARES
---------------------------------------------------------------------------------
+# MIDDLEWARES
 
 - https://pkg.go.dev/github.com/go-chi/chi@v1.5.1/middleware
 - https://pkg.go.dev/github.com/labstack/echo/v4@v4.1.17/middleware
@@ -139,3 +128,5 @@ MIDDLEWARES
 - gzip compression
 - ip filter? https://github.com/letsencrypt/boulder/blob/b58e5453e8039804eb241e13d5ff5dd744d2c7e4/bdns/dns.go#L31-L145
 
+# META DATA GENERATOR
+- https://broken-links.com/2015/12/01/little-less-metacrap/
