@@ -15,11 +15,18 @@ bench:
 	go test -race -cover -bench=.
 
 .PHONY: lint
-lint:
+lint: govet golint gosec
+
+.PHONY: govet
+govet:
+	go vet ./...
+
+.PHONY: golint
+golint:
 	golint ./...
 
-.PHONY: secure
-secure:
+.PHONY: gosec
+gosec:
 	gosec -quiet -fmt=golint ./...
 
 .PHONY: clean

@@ -1,9 +1,14 @@
 
 Big list of temporary notes, to be removed/documented as work continues...
 
-# SECURITY 
+# TODO ASAP
 
-Validators
+- add top pkg doc, https://godocs.io/github.com/lmas/web?tools
+- change license
+
+
+# VALIDATORS
+
 - https://www.ssllabs.com/ssltest/
 - https://securityheaders.com/
 - https://validator.w3.org/
@@ -19,6 +24,9 @@ Validators
 - https://themarkup.org/blacklight
 - https://www.webpagetest.org/
 - https://gtmetrix.com/
+- https://web.dev/measure/
+- https://cssstats.com/
+- https://www.checkbot.io/
 
 # SECURITY HEADERS
 
@@ -35,6 +43,7 @@ example
 - https://www.owasp.org/index.php/OWASP_Secure_Headers_Project
 - https://github.com/github/secure_headers
 - https://github.com/kr/secureheader
+- https://infosec-handbook.eu/blog/wss3-tls-headers/
 
 content security policy (90 days)
 - https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
@@ -71,8 +80,15 @@ investigate this procedure
 
 keep tokens in a cache
 - https://github.com/zgoat/zcache
+- https://github.com/bradfitz/gomemcache
+- https://old.reddit.com/r/netsec/comments/l0hgc7/cache_poisoning_in_popular_open_source_packages/
 
 # TLS
+
+Verify protocol/cipher suits, among other things:
+- https://www.eff.org/https-everywhere/deploying-https
+
+- https://old.reddit.com/r/netsec/comments/kzrxhv/test_a_tls_server_check_the_security_of_your/
 
 - https://github.com/ssllabs/research/wiki/SSL-and-TLS-Deployment-Best-Practices
 
@@ -98,9 +114,12 @@ disable http and redirection to https? and just enforce https only
 try preloading/getting on the preload list
 - https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security#preloading_strict_transport_security
 
+- https://news.ycombinator.com/item?id=26092704
+
 # OPTIMIZATIONS
 
 - https://methane.github.io/2015/02/reduce-allocation-in-go-code/
+- https://news.ycombinator.com/item?id=25874595 (https://www.smashingmagazine.com/2021/01/smashingmag-performance-case-study/)
 
 # DATABASE
 
@@ -114,6 +133,7 @@ optimize sqlite
 # EMBEDDING
 
 - https://tip.golang.org/pkg/embed/
+- https://philipptanlak.com/web-frontends-in-go/
 
 # MIDDLEWARES
 
@@ -130,3 +150,9 @@ optimize sqlite
 
 # META DATA GENERATOR
 - https://broken-links.com/2015/12/01/little-less-metacrap/
+
+# COMMON BUGS AND PROBLEMS
+
+- https://www.bugcrowd.com/blog/common-bugs-of-2021/
+- https://news.ycombinator.com/item?id=26111335
+- https://httptoolkit.tech/blog/http-wtf/
