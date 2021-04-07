@@ -83,6 +83,9 @@ keep tokens in a cache
 - https://github.com/bradfitz/gomemcache
 - https://old.reddit.com/r/netsec/comments/l0hgc7/cache_poisoning_in_popular_open_source_packages/
 
+token formats:
+- https://github.blog/2021-04-05-behind-githubs-new-authentication-token-formats/
+
 # TLS
 
 Verify protocol/cipher suits, among other things:
@@ -156,3 +159,5 @@ optimize sqlite
 - https://www.bugcrowd.com/blog/common-bugs-of-2021/
 - https://news.ycombinator.com/item?id=26111335
 - https://httptoolkit.tech/blog/http-wtf/
+- https://www.jesuisundev.com/en/web-security-the-must-know-for-developers/
+- https://martin.baillie.id/wrote/gotchas-in-the-go-network-packages-defaults/
