@@ -1,8 +1,8 @@
 
-# With some inspiration from: https://github.com/mvdan/github-actions-golang 
+# With some inspiration from: https://github.com/mvdan/github-actions-golang
 
 name: Testing
-on: [push, pull_request]
+on: [push]
 jobs:
 
   test:
